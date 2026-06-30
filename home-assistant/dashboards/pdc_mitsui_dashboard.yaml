@@ -1,0 +1,593 @@
+title: CLIMA
+views:
+  - title: CLIMA
+    path: clima
+    icon: mdi:home-thermometer
+    badges: []
+    cards:
+      - type: horizontal-stack
+        cards:
+          - type: button
+            entity: script.clima_tutto_off
+            name: Zone+PDC OFF
+            icon: mdi:power
+            show_state: false
+            tap_action:
+              action: call-service
+              service: script.clima_tutto_off
+              confirmation:
+                text: "Spegne tutti i termostati VIMAR e toglie la richiesta caldo/freddo alla PDC. Procedere?"
+          - type: button
+            entity: script.clima_tutto_heat
+            name: Zone HEAT
+            icon: mdi:fire
+            show_state: false
+            tap_action:
+              action: call-service
+              service: script.clima_tutto_heat
+              confirmation:
+                text: "Imposta tutti i termostati in riscaldamento e attiva la richiesta PDC caldo spegnendo freddo. Procedere?"
+          - type: button
+            entity: script.clima_tutto_cool
+            name: Zone COOL
+            icon: mdi:snowflake
+            show_state: false
+            tap_action:
+              action: call-service
+              service: script.clima_tutto_cool
+              confirmation:
+                text: "Imposta tutti i termostati in raffrescamento e attiva la richiesta PDC freddo spegnendo caldo. Procedere?"
+          - type: button
+            entity: script.clima_tutto_auto
+            name: Zone AUTO
+            icon: mdi:autorenew
+            show_state: false
+            tap_action:
+              action: call-service
+              service: script.clima_tutto_auto
+              confirmation:
+                text: "Imposta i termostati VIMAR in AUTO. Non cambia direttamente la richiesta caldo/freddo della PDC. Procedere?"
+
+      - type: markdown
+        content: >-
+          **Comandi globali.** OFF ferma zone e richiesta PDC; HEAT/COOL
+          impostano zone e consenso VIMAR; AUTO agisce solo sulle zone.
+
+      - type: entities
+        title: Setpoint VIMAR
+        show_header_toggle: false
+        entities:
+          - type: section
+            label: Tutta casa
+          - entity: input_number.clima_setpoint_tutti
+            name: Temperatura
+            icon: mdi:home-thermometer
+          - type: button
+            name: Imposta su tutti i termostati
+            icon: mdi:check-all
+            action_name: Imposta
+            tap_action:
+              action: call-service
+              service: script.clima_setpoint_tutti
+              confirmation:
+                text: "Imposta questa temperatura su tutti i termostati VIMAR. Procedere?"
+          - type: section
+            label: Zona notte
+          - entity: input_number.clima_setpoint_zona_notte
+            name: Camera, cameretta, bagno
+            icon: mdi:bed
+          - type: button
+            name: Imposta zona notte
+            icon: mdi:check
+            action_name: Imposta
+            tap_action:
+              action: call-service
+              service: script.clima_setpoint_zona_notte
+              confirmation:
+                text: "Imposta questa temperatura su Camera, Cameretta e Bagno. Procedere?"
+          - type: section
+            label: Zona giorno
+          - entity: input_number.clima_setpoint_zona_giorno
+            name: Cucina, sala da pranzo, salotto
+            icon: mdi:sofa
+          - type: button
+            name: Imposta zona giorno
+            icon: mdi:check
+            action_name: Imposta
+            tap_action:
+              action: call-service
+              service: script.clima_setpoint_zona_giorno
+              confirmation:
+                text: "Imposta questa temperatura su Cucina, Sala da pranzo e Salotto. Procedere?"
+          - type: section
+            label: P2
+          - entity: input_number.clima_setpoint_p2
+            name: Bagno servizio, padronale, sala/stanza SUD, stanza OVEST
+            icon: mdi:home-floor-2
+          - type: button
+            name: Imposta P2
+            icon: mdi:check
+            action_name: Imposta
+            tap_action:
+              action: call-service
+              service: script.clima_setpoint_p2
+              confirmation:
+                text: "Imposta questa temperatura su tutti i termostati del P2. Procedere?"
+
+      - type: entities
+        title: Stato zone
+        show_header_toggle: false
+        entities:
+          - entity: sensor.clima_zone_calling_total
+            name: Zone in richiesta
+          - entity: sensor.clima_zone_heating_total
+            name: Zone in riscaldamento
+          - entity: sensor.clima_zone_cooling_total
+            name: Zone in raffrescamento
+          - entity: sensor.clima_zone_mode_on_total
+            name: Zone non spente
+          - entity: binary_sensor.clima_tutte_zone_soddisfatte
+            name: Tutte soddisfatte
+          - entity: binary_sensor.clima_tutte_zone_spente
+            name: Tutte spente
+          - entity: sensor.pdc_mitsui_richiesta_pdc_coerente
+            name: Coerenza richiesta PDC
+
+      - type: entities
+        title: Termostato PDC
+        show_header_toggle: false
+        entities:
+          - entity: sensor.pdc_mitsui_richiesta_vimar
+            name: Funzionamento richiesto
+          - entity: sensor.pdc_mitsui_mode
+            name: Funzionamento letto da Modbus
+          - entity: sensor.pdc_mitsui_setpoint
+            name: Mandata attuale letta
+          - entity: input_number.pdc_mitsui_mandata_target
+            name: Nuova T mandata Modbus
+          - entity: sensor.pdc_mitsui_last_setpoint_write
+            name: Ultima scrittura Modbus
+          - entity: sensor.pdc_mitsui_water_in
+            name: Acqua IN
+          - entity: sensor.pdc_mitsui_water_out
+            name: Acqua OUT
+
+      - type: horizontal-stack
+        cards:
+          - type: button
+            entity: script.pdc_mitsui_stop_richiesta
+            name: OFF PDC
+            icon: mdi:power-plug-off
+            show_state: false
+            tap_action:
+              action: call-service
+              service: script.pdc_mitsui_stop_richiesta
+              confirmation:
+                text: "Ferma il consenso caldo/freddo alla PDC senza togliere alimentazione. Procedere?"
+          - type: button
+            entity: switch.pdc_caldo
+            name: HEAT PDC
+            icon: mdi:radiator
+            show_state: true
+            state_color: true
+            tap_action:
+              action: call-service
+              service: script.pdc_mitsui_set_caldo
+              confirmation:
+                text: "Attiva richiesta caldo e spegne automaticamente richiesta freddo. Procedere?"
+          - type: button
+            entity: switch.pdc_freddo
+            name: COOL PDC
+            icon: mdi:snowflake-thermometer
+            show_state: true
+            state_color: true
+            tap_action:
+              action: call-service
+              service: script.pdc_mitsui_set_freddo
+              confirmation:
+                text: "Attiva richiesta freddo e spegne automaticamente richiesta caldo. Procedere?"
+          - type: button
+            entity: script.pdc_mitsui_apply_mandata
+            name: Scrivi T mandata
+            icon: mdi:water-thermometer
+            show_state: false
+            tap_action:
+              action: call-service
+              service: script.pdc_mitsui_apply_mandata
+              confirmation:
+                text: "Scrive su Modbus reg11 la temperatura impostata nel campo 'Nuova T mandata Modbus'. Procedere?"
+
+      - type: grid
+        title: Zone principali
+        columns: 3
+        square: false
+        cards:
+          - type: thermostat
+            entity: climate.clima_bagno
+            name: Bagno
+          - type: thermostat
+            entity: climate.clima_camera
+            name: Camera
+          - type: thermostat
+            entity: climate.clima_cameretta
+            name: Cameretta
+          - type: thermostat
+            entity: climate.clima_cucina
+            name: Cucina
+          - type: thermostat
+            entity: climate.clima_sala_da_pranzo
+            name: Sala da pranzo
+          - type: thermostat
+            entity: climate.clima_salotto
+            name: Salotto
+
+      - type: grid
+        title: Zone secondarie
+        columns: 3
+        square: false
+        cards:
+          - type: thermostat
+            entity: climate.termostato_bagno_servizio
+            name: Bagno servizio
+          - type: thermostat
+            entity: climate.termostato_padronale_p2
+            name: Padronale P2
+          - type: thermostat
+            entity: climate.termostato_sala_sud
+            name: Sala SUD
+          - type: thermostat
+            entity: climate.termostato_stanza_ovest_p2
+            name: Stanza OVEST P2
+          - type: thermostat
+            entity: climate.termostato_stanza_sud
+            name: Stanza SUD
+
+      - type: horizontal-stack
+        cards:
+          - type: gauge
+            entity: sensor.pdc_mitsui_setpoint
+            name: Mandata setpoint
+            min: 5
+            max: 65
+          - type: gauge
+            entity: sensor.pdc_mitsui_flow
+            name: Portata
+            min: 0
+            max: 3
+          - type: gauge
+            entity: sensor.0x187a3efffecac49f_power_z
+            name: Potenza PDC
+            min: 0
+            max: 3000
+
+      - type: entities
+        title: Stato PDC
+        show_header_toggle: false
+        entities:
+          - entity: sensor.pdc_mitsui_richiesta_vimar
+            name: Richiesta VIMAR
+          - entity: sensor.pdc_mitsui_mode
+            name: Modo Modbus
+          - entity: sensor.pdc_mitsui_hydraulic_state
+            name: Stato idronico
+          - entity: sensor.pdc_mitsui_stato_elettrico
+            name: Stato elettrico
+          - entity: binary_sensor.pdc_mitsui_electrically_active
+            name: Elettricamente attiva
+          - entity: binary_sensor.pdc_mitsui_compressor_running
+            name: Compressore attivo
+          - entity: binary_sensor.pdc_mitsui_pump_i
+            name: Pompa interna
+          - entity: binary_sensor.pdc_mitsui_pump_o
+            name: Pompa esterna
+          - entity: binary_sensor.pdc_mitsui_circulating
+            name: Circolazione OK
+          - entity: binary_sensor.pdc_mitsui_alarm
+            name: Allarme
+          - entity: sensor.pdc_mitsui_current_fault
+            name: Fault corrente
+
+      - type: entities
+        title: Temperature PDC
+        show_header_toggle: false
+        entities:
+          - entity: sensor.pdc_mitsui_setpoint
+            name: Setpoint mandata
+          - entity: sensor.pdc_mitsui_water_in
+            name: Acqua IN
+          - entity: sensor.pdc_mitsui_water_out
+            name: Acqua OUT
+          - entity: sensor.pdc_mitsui_delta_cooling
+            name: Delta freddo IN-OUT
+          - entity: sensor.pdc_mitsui_delta_termico
+            name: Delta termico usato
+          - entity: sensor.pdc_mitsui_outdoor
+            name: Esterna T4
+          - entity: sensor.pdc_mitsui_room
+            name: Ambiente Ta
+          - entity: sensor.pdc_mitsui_tank
+            name: Serbatoio T5
+
+      - type: entities
+        title: Energia
+        show_header_toggle: false
+        entities:
+          - entity: sensor.pdc_cop_orario
+            name: COP orario
+          - entity: sensor.pdc_mitsui_cop_istantaneo
+            name: COP istantaneo Modbus/Zemismart
+          - entity: sensor.0x187a3efffecac49f_power_z
+            name: Potenza istantanea Zemismart
+          - entity: sensor.0x187a3efffecac49f_current_z
+            name: Corrente Zemismart
+          - entity: sensor.0x187a3efffecac49f_voltage_z
+            name: Voltaggio Zemismart
+          - entity: sensor.0x187a3efffecac49f_energy
+            name: Energia Zemismart
+          - entity: sensor.pdc_mitsui_energy_consumption
+            name: Energia consumata HMI Modbus
+          - entity: sensor.pdc_mitsui_hydraulic_power
+            name: Potenza idronica HMI
+          - entity: sensor.pdc_mitsui_thermal_power_calculated
+            name: Potenza termica calcolata
+          - entity: sensor.clima_termoregolazione_impianto_termoregolazione_vimar_potenza
+            name: Potenza termoregolazione VIMAR
+          - entity: sensor.clima_termoregolazione_impianto_termoregolazione_vimar_energia
+            name: Energia termoregolazione VIMAR
+          - entity: sensor.clima_termoregolazione_impianto_termoregolazione_vimar_energia_restituita
+            name: Energia restituita VIMAR
+
+      - type: history-graph
+        title: Andamento PDC
+        hours_to_show: 6
+        refresh_interval: 30
+        entities:
+          - sensor.pdc_mitsui_setpoint
+          - sensor.pdc_mitsui_water_in
+          - sensor.pdc_mitsui_water_out
+          - sensor.pdc_mitsui_outdoor
+          - sensor.pdc_mitsui_flow
+
+      - type: history-graph
+        title: Potenza e COP
+        hours_to_show: 6
+        refresh_interval: 30
+        entities:
+          - sensor.0x187a3efffecac49f_power_z
+          - sensor.pdc_mitsui_thermal_power_calculated
+          - sensor.pdc_mitsui_compressor_frequency
+          - sensor.pdc_cop_orario
+
+      - type: entities
+        title: Reset e protezioni
+        show_header_toggle: false
+        entities:
+          - entity: input_boolean.pdc_mitsui_auto_protection_enabled
+            name: Protezioni automatiche abilitate
+          - entity: input_boolean.pdc_mitsui_auto_reset_enabled
+            name: Reset Shelly automatico abilitato
+          - entity: input_boolean.pdc_mitsui_ac_lan_fallback_enabled
+            name: Fallback AC LAN abilitato
+          - entity: switch.shellyplus1pm_fcb467286758_switch_0
+            name: Alimentazione modulo idronico
+          - entity: sensor.152832116443590_error_code
+            name: Error code AC LAN fallback
+          - entity: binary_sensor.pdc_mitsui_reset_required
+            name: Reset richiesto da Modbus
+          - entity: binary_sensor.pdc_mitsui_ac_lan_fallback_fault_69
+            name: Fallback fault 69 AC LAN
+          - entity: automation.pdc_mitsui_stop_richiesta_se_zone_soddisfatte
+            name: Stop richiesta se zone soddisfatte
+          - entity: automation.pdc_mitsui_prevenzione_bassa_portata
+            name: Prevenzione bassa portata
+          - entity: automation.pdc_mitsui_reset_shelly_blocco_modbus_first
+            name: Reset Shelly Modbus-first
+          - entity: binary_sensor.pdc_mitsui_low_flow_while_pumping
+            name: Portata bassa con pompa
+          - entity: binary_sensor.pdc_mitsui_modbus_read_errors
+            name: Errori lettura Modbus
+          - entity: binary_sensor.pdc_mitsui_vimar_invalid_both_on
+            name: Caldo e freddo entrambi ON
+
+      - type: logbook
+        title: Log errori PDC
+        hours_to_show: 24
+        entities:
+          - sensor.pdc_mitsui_current_fault
+          - binary_sensor.pdc_mitsui_alarm
+          - binary_sensor.pdc_mitsui_modbus_read_errors
+          - binary_sensor.pdc_mitsui_low_flow_while_pumping
+          - binary_sensor.pdc_mitsui_vimar_invalid_both_on
+          - sensor.152832116443590_error_code
+          - switch.shellyplus1pm_fcb467286758_switch_0
+          - automation.pdc_mitsui_stop_richiesta_se_zone_soddisfatte
+          - automation.pdc_mitsui_prevenzione_bassa_portata
+          - automation.pdc_mitsui_reset_shelly_blocco_modbus_first
+
+      - type: entities
+        title: Diagnostica exporter
+        show_header_toggle: false
+        entities:
+          - entity: binary_sensor.pdc_mitsui_telemetry_online
+            name: Telemetria online
+          - entity: binary_sensor.pdc_mitsui_telemetry_stale
+            name: Telemetria stale
+          - entity: sensor.pdc_mitsui_telemetry_age
+            name: Eta dato
+          - entity: sensor.pdc_mitsui_poll_duration
+            name: Durata polling
+          - entity: sensor.pdc_mitsui_read_errors
+            name: Errori lettura
+          - entity: input_number.pdc_mitsui_min_flow_warning
+            name: Soglia flow
+          - entity: sensor.pdc_mitsui_flow_margin
+            name: Margine flow
+          - entity: input_number.pdc_mitsui_electrical_active_power_threshold
+            name: Soglia potenza attiva
+          - entity: input_number.pdc_mitsui_electrical_active_current_threshold
+            name: Soglia corrente attiva
+
+      - type: entities
+        title: Tecnici
+        show_header_toggle: false
+        entities:
+          - entity: sensor.pdc_mitsui_compressor_frequency
+            name: Frequenza compressore
+          - entity: sensor.pdc_mitsui_target_frequency
+            name: Frequenza target
+          - entity: sensor.pdc_mitsui_fan_rpm
+            name: Ventilatore
+          - entity: sensor.pdc_mitsui_voltage
+            name: Tensione HMI
+          - entity: sensor.pdc_mitsui_high_pressure
+            name: Pressione alta
+          - entity: sensor.pdc_mitsui_low_pressure
+            name: Pressione bassa
+          - entity: sensor.pdc_mitsui_compressor_hours
+            name: Ore compressore
+          - entity: binary_sensor.pdc_mitsui_run_bit
+            name: RUN bit
+          - entity: binary_sensor.pdc_mitsui_remote_on_off
+            name: Remote on/off
+          - entity: binary_sensor.pdc_mitsui_room_stat_cooling
+            name: Termostato cooling
+          - entity: binary_sensor.pdc_mitsui_room_stat_heating
+            name: Termostato heating
+          - entity: binary_sensor.pdc_mitsui_defrosting
+            name: Defrost
+          - entity: binary_sensor.pdc_mitsui_antifreeze
+            name: Antigelo
+
+      - type: entities
+        title: Raw Modbus
+        show_header_toggle: false
+        entities:
+          - entity: sensor.pdc_mitsui_state
+            name: Stato raw
+          - type: attribute
+            entity: sensor.pdc_mitsui_state
+            attribute: status_bits
+            name: Status bits
+          - type: attribute
+            entity: sensor.pdc_mitsui_state
+            attribute: output_bits
+            name: Output bits
+          - type: attribute
+            entity: sensor.pdc_mitsui_state
+            attribute: setpoint_word
+            name: Setpoint word
+          - entity: sensor.pdc_mitsui_setpoint_word_raw
+            name: Setpoint word raw
+          - entity: sensor.pdc_mitsui_setpoint_word_hb
+            name: Setpoint word HB
+          - entity: sensor.pdc_mitsui_setpoint_word_lb
+            name: Setpoint word LB
+          - entity: sensor.pdc_mitsui_setpoint_delta_word
+            name: Delta reg11/LB
+
+  - title: PDC 24h
+    path: pdc-24h
+    icon: mdi:timeline-clock
+    badges: []
+    cards:
+      - type: markdown
+        title: Osservazione 24h
+        content: >-
+          **ESP32:** {{ states('binary_sensor.pdc_mitsui_esp32_pdc_mitsui_esp32_status') }}
+          - Wi-Fi {{ states('sensor.pdc_mitsui_esp32_pdc_mitsui_esp32_wifi_signal') }} dBm
+          - uptime {{ (states('sensor.pdc_mitsui_esp32_pdc_mitsui_esp32_uptime') | float(0) / 3600) | round(1) }} h
+
+          **Modbus:** telemetria {{ states('binary_sensor.pdc_mitsui_telemetry_online') }},
+          errori {{ states('binary_sensor.pdc_mitsui_modbus_read_errors') }},
+          reset {{ states('binary_sensor.pdc_mitsui_reset_required') }}
+
+          **PDC:** {{ states('sensor.pdc_mitsui_state') }},
+          setpoint {{ states('sensor.pdc_mitsui_setpoint') }} C,
+          acqua {{ states('sensor.pdc_mitsui_water_in') }}/{{ states('sensor.pdc_mitsui_water_out') }} C,
+          flow {{ states('sensor.pdc_mitsui_flow') }} m3/h
+
+          **Ultimo write:** {{ states('sensor.pdc_mitsui_last_setpoint_write') }}
+
+      - type: entities
+        title: Guardie
+        show_header_toggle: false
+        entities:
+          - entity: binary_sensor.pdc_mitsui_telemetry_online
+            name: Telemetria online
+          - entity: binary_sensor.pdc_mitsui_modbus_read_errors
+            name: Errori Modbus
+          - entity: binary_sensor.pdc_mitsui_reset_required
+            name: Reset richiesto
+          - entity: binary_sensor.pdc_mitsui_alarm
+            name: Allarme PDC
+          - entity: binary_sensor.pdc_mitsui_low_flow_while_pumping
+            name: Bassa portata con pompa
+          - entity: sensor.pdc_mitsui_flow_margin
+            name: Margine portata
+          - entity: sensor.pdc_mitsui_last_setpoint_write
+            name: Ultimo write mandata
+
+      - type: entities
+        title: ESP32
+        show_header_toggle: false
+        entities:
+          - entity: binary_sensor.pdc_mitsui_esp32_pdc_mitsui_esp32_status
+            name: Stato ESPHome
+          - entity: sensor.pdc_mitsui_esp32_pdc_mitsui_esp32_wifi_signal
+            name: Wi-Fi
+          - entity: sensor.pdc_mitsui_esp32_pdc_mitsui_esp32_uptime
+            name: Uptime
+          - entity: sensor.pdc_mitsui_exporter
+            name: Compat exporter
+          - entity: sensor.pdc_mitsui_telemetry_age
+            name: Eta telemetria
+          - entity: sensor.pdc_mitsui_read_errors
+            name: Errori lettura
+
+      - type: history-graph
+        title: Stato e guardie - 24h
+        hours_to_show: 24
+        refresh_interval: 60
+        entities:
+          - entity: binary_sensor.pdc_mitsui_telemetry_online
+            name: Online
+          - entity: binary_sensor.pdc_mitsui_modbus_read_errors
+            name: Modbus errors
+          - entity: binary_sensor.pdc_mitsui_reset_required
+            name: Reset
+          - entity: binary_sensor.pdc_mitsui_alarm
+            name: Alarm
+          - entity: sensor.pdc_mitsui_state
+            name: Stato
+
+      - type: history-graph
+        title: Idraulica - 24h
+        hours_to_show: 24
+        refresh_interval: 60
+        entities:
+          - entity: sensor.pdc_mitsui_setpoint
+            name: Setpoint
+          - entity: sensor.pdc_mitsui_water_in
+            name: In
+          - entity: sensor.pdc_mitsui_water_out
+            name: Out
+          - entity: sensor.pdc_mitsui_delta_t
+            name: Delta
+          - entity: sensor.pdc_mitsui_flow
+            name: Flow
+
+      - type: history-graph
+        title: Macchina - 24h
+        hours_to_show: 24
+        refresh_interval: 60
+        entities:
+          - entity: sensor.pdc_mitsui_compressor_frequency
+            name: Compressore
+          - entity: sensor.pdc_mitsui_target_frequency
+            name: Target
+          - entity: sensor.pdc_mitsui_fan_rpm
+            name: Ventola
+          - entity: sensor.pdc_mitsui_compressor_current
+            name: Corrente
+          - entity: sensor.pdc_mitsui_voltage
+            name: Tensione

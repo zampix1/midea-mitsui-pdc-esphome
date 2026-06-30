@@ -1,0 +1,28 @@
+substitutions:
+  devicename: pdc-mitsui-esp32
+  friendly_name: "PDC Mitsui ESP32"
+  wifi_domain: .example.lan
+
+  # Waveshare ESP32-S3-RS485-CAN defaults.
+  pdc_uart_tx_pin: GPIO17
+  pdc_uart_rx_pin: GPIO18
+  pdc_rs485_flow_control_pin: GPIO21
+
+  # Common Midea/Mitsui Modbus defaults.
+  pdc_uart_baud_rate: "9600"
+  pdc_modbus_slave_address: "1"
+
+packages:
+  pdc_mitsui:
+    url: https://github.com/zampix1/midea-mitsui-pdc-esphome
+    ref: main
+    file: esphome/packages/midea_mitsui_waveshare_esp32s3_rs485_can.yaml
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  domain: ${wifi_domain}
+  power_save_mode: none
+  ap:
+    ssid: "${devicename}-setup"
+    password: !secret fallback_ap_password

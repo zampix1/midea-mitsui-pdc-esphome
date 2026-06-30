@@ -1,0 +1,1289 @@
+substitutions:
+  devicename: pdc-mitsui-esp32
+  friendly_name: "PDC Mitsui ESP32"
+  pdc_uart_tx_pin: GPIO17
+  pdc_uart_rx_pin: GPIO18
+  pdc_rs485_flow_control_pin: GPIO21
+  pdc_uart_baud_rate: "9600"
+  pdc_modbus_slave_address: "1"
+  pdc_modbus_send_wait_time: 300ms
+  pdc_modbus_command_throttle: 350ms
+  pdc_modbus_update_interval: 10s
+  pdc_modbus_offline_skip_updates: "3"
+
+esphome:
+  name: ${devicename}
+  friendly_name: ${friendly_name}
+  comment: "Mitsui/Midea heat pump Modbus RTU bridge"
+  platformio_options:
+    board_build.arduino.usb_mode: "cdc"
+    board_build.arduino.usb_cdc_on_boot: "1"
+
+esp32:
+  board: esp32-s3-devkitc-1
+  variant: esp32s3
+  flash_size: 16MB
+  framework:
+    type: arduino
+    version: recommended
+
+logger:
+  level: INFO
+  baud_rate: 115200
+  hardware_uart: USB_SERIAL_JTAG
+
+api:
+  reboot_timeout: 0s
+
+ota:
+  - platform: esphome
+
+safe_mode:
+
+mdns:
+  disabled: false
+
+captive_portal:
+
+web_server:
+  port: 80
+  version: 3
+
+uart:
+  id: mod_bus
+  tx_pin: ${pdc_uart_tx_pin}
+  rx_pin: ${pdc_uart_rx_pin}
+  baud_rate: ${pdc_uart_baud_rate}
+  stop_bits: 1
+  parity: NONE
+  # 8N1: matches the Raspberry/mbpoll path.
+
+modbus:
+  id: heatpump_modbus
+  uart_id: mod_bus
+  flow_control_pin: ${pdc_rs485_flow_control_pin}
+  send_wait_time: ${pdc_modbus_send_wait_time}
+
+modbus_controller:
+  - id: pdc
+    address: ${pdc_modbus_slave_address}
+    modbus_id: heatpump_modbus
+    setup_priority: -10
+    command_throttle: ${pdc_modbus_command_throttle}
+    update_interval: ${pdc_modbus_update_interval}
+    offline_skip_updates: ${pdc_modbus_offline_skip_updates}
+
+sensor:
+  - platform: uptime
+    name: "PDC Mitsui ESP32 Uptime"
+    entity_category: diagnostic
+
+  - platform: wifi_signal
+    name: "PDC Mitsui ESP32 WiFi Signal"
+    update_interval: 60s
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui Power Flags Raw"
+    id: pdc_power_flags_raw
+    address: 0
+    register_type: holding
+    value_type: U_WORD
+    accuracy_decimals: 0
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui Mode Set Raw"
+    id: pdc_mode_set_raw
+    address: 1
+    register_type: holding
+    value_type: U_WORD
+    accuracy_decimals: 0
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui Setpoint Word Raw"
+    id: pdc_setpoint_word_raw
+    address: 2
+    register_type: holding
+    value_type: U_WORD
+    accuracy_decimals: 0
+    entity_category: diagnostic
+
+  - platform: template
+    name: "PDC Mitsui Setpoint Word High Byte"
+    lambda: |-
+      if (!id(pdc_setpoint_word_raw).has_state()) return NAN;
+      return ((uint16_t) id(pdc_setpoint_word_raw).state >> 8) & 0xFF;
+    unit_of_measurement: "\u00B0C"
+    accuracy_decimals: 0
+    device_class: temperature
+    entity_category: diagnostic
+
+  - platform: template
+    name: "PDC Mitsui Setpoint Word Low Byte"
+    lambda: |-
+      if (!id(pdc_setpoint_word_raw).has_state()) return NAN;
+      return ((uint16_t) id(pdc_setpoint_word_raw).state) & 0xFF;
+    unit_of_measurement: "\u00B0C"
+    accuracy_decimals: 0
+    device_class: temperature
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui Function Flags Raw"
+    id: pdc_function_flags_raw
+    address: 5
+    register_type: holding
+    value_type: U_WORD
+    skip_updates: 2
+    accuracy_decimals: 0
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui SG Max Time"
+    address: 10
+    register_type: holding
+    value_type: U_WORD
+    unit_of_measurement: "h"
+    accuracy_decimals: 0
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui Setpoint Water"
+    id: pdc_setpoint_water
+    address: 11
+    register_type: holding
+    value_type: U_WORD
+    unit_of_measurement: "\u00B0C"
+    accuracy_decimals: 0
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui Register 12 Raw"
+    address: 12
+    register_type: holding
+    value_type: U_WORD
+    accuracy_decimals: 0
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui Register 13 Raw"
+    address: 13
+    register_type: holding
+    value_type: U_WORD
+    accuracy_decimals: 0
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui Compressor Frequency"
+    id: pdc_compressor_hz
+    address: 100
+    register_type: holding
+    value_type: U_WORD
+    unit_of_measurement: "Hz"
+    accuracy_decimals: 0
+    state_class: measurement
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui Operating Mode Raw"
+    id: pdc_mode_raw
+    address: 101
+    register_type: holding
+    value_type: U_WORD
+    accuracy_decimals: 0
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui Fan Speed"
+    id: pdc_fan_rpm
+    address: 102
+    register_type: holding
+    value_type: U_WORD
+    unit_of_measurement: "rpm"
+    accuracy_decimals: 0
+    state_class: measurement
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui PMV Steps"
+    id: pdc_pmv_steps
+    address: 103
+    register_type: holding
+    value_type: U_WORD
+    unit_of_measurement: "steps"
+    accuracy_decimals: 0
+    state_class: measurement
+
+  - platform: template
+    name: "PDC Mitsui PMV Percent"
+    lambda: |-
+      if (!id(pdc_pmv_steps).has_state()) return NAN;
+      float pct = id(pdc_pmv_steps).state * 100.0f / 480.0f;
+      if (pct < 0.0f) pct = 0.0f;
+      if (pct > 100.0f) pct = 100.0f;
+      return pct;
+    unit_of_measurement: "%"
+    accuracy_decimals: 1
+    state_class: measurement
+    update_interval: 10s
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui Water Inlet"
+    id: pdc_water_in
+    address: 104
+    register_type: holding
+    value_type: S_WORD
+    unit_of_measurement: "\u00B0C"
+    accuracy_decimals: 0
+    device_class: temperature
+    state_class: measurement
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui Water Outlet"
+    id: pdc_water_out
+    address: 105
+    register_type: holding
+    value_type: S_WORD
+    unit_of_measurement: "\u00B0C"
+    accuracy_decimals: 0
+    device_class: temperature
+    state_class: measurement
+
+  - platform: template
+    name: "PDC Mitsui Delta T Outlet Minus Inlet"
+    id: pdc_delta_out_minus_in
+    lambda: |-
+      if (!id(pdc_water_in).has_state() || !id(pdc_water_out).has_state()) return NAN;
+      return id(pdc_water_out).state - id(pdc_water_in).state;
+    unit_of_measurement: "\u00B0C"
+    accuracy_decimals: 1
+    device_class: temperature
+    state_class: measurement
+    update_interval: 10s
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui T3 Condenser"
+    id: pdc_t3_condenser
+    address: 106
+    register_type: holding
+    value_type: S_WORD
+    force_new_range: true
+    skip_updates: 2
+    unit_of_measurement: "\u00B0C"
+    accuracy_decimals: 0
+    device_class: temperature
+    state_class: measurement
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui T4 Outdoor"
+    id: pdc_t4_outdoor
+    address: 107
+    register_type: holding
+    value_type: S_WORD
+    unit_of_measurement: "\u00B0C"
+    accuracy_decimals: 0
+    device_class: temperature
+    state_class: measurement
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui Tp Discharge"
+    id: pdc_tp_discharge
+    address: 108
+    register_type: holding
+    value_type: S_WORD
+    unit_of_measurement: "\u00B0C"
+    accuracy_decimals: 0
+    device_class: temperature
+    state_class: measurement
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui Th Suction"
+    id: pdc_th_suction
+    address: 109
+    register_type: holding
+    value_type: S_WORD
+    unit_of_measurement: "\u00B0C"
+    accuracy_decimals: 0
+    device_class: temperature
+    state_class: measurement
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui T1 Total Water Outlet"
+    id: pdc_t1_total_outlet
+    address: 110
+    register_type: holding
+    value_type: S_WORD
+    unit_of_measurement: "\u00B0C"
+    accuracy_decimals: 0
+    device_class: temperature
+    state_class: measurement
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui T1B Aux Outlet"
+    id: pdc_t1b_aux_outlet
+    address: 111
+    register_type: holding
+    value_type: S_WORD
+    unit_of_measurement: "\u00B0C"
+    accuracy_decimals: 0
+    device_class: temperature
+    state_class: measurement
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui T2 Refrigerant Liquid"
+    id: pdc_t2_refrigerant_liquid
+    address: 112
+    register_type: holding
+    value_type: S_WORD
+    unit_of_measurement: "\u00B0C"
+    accuracy_decimals: 0
+    device_class: temperature
+    state_class: measurement
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui T2B Refrigerant Gas"
+    id: pdc_t2b_refrigerant_gas
+    address: 113
+    register_type: holding
+    value_type: S_WORD
+    unit_of_measurement: "\u00B0C"
+    accuracy_decimals: 0
+    device_class: temperature
+    state_class: measurement
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui Ta Room"
+    id: pdc_ta_room
+    address: 114
+    register_type: holding
+    value_type: S_WORD
+    unit_of_measurement: "\u00B0C"
+    accuracy_decimals: 0
+    device_class: temperature
+    state_class: measurement
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui T5 Tank"
+    id: pdc_t5_tank
+    address: 115
+    register_type: holding
+    value_type: S_WORD
+    unit_of_measurement: "\u00B0C"
+    accuracy_decimals: 0
+    device_class: temperature
+    state_class: measurement
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui High Pressure"
+    id: pdc_pressure_high
+    address: 116
+    register_type: holding
+    value_type: U_WORD
+    unit_of_measurement: "kPa"
+    accuracy_decimals: 0
+    state_class: measurement
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui Low Pressure"
+    id: pdc_pressure_low
+    address: 117
+    register_type: holding
+    value_type: U_WORD
+    unit_of_measurement: "kPa"
+    accuracy_decimals: 0
+    state_class: measurement
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui Outdoor Current Raw"
+    id: pdc_outdoor_current_raw
+    address: 118
+    register_type: holding
+    value_type: U_WORD
+    unit_of_measurement: "A"
+    accuracy_decimals: 0
+    state_class: measurement
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui Outdoor Voltage"
+    id: pdc_outdoor_voltage
+    address: 119
+    register_type: holding
+    value_type: U_WORD
+    unit_of_measurement: "V"
+    accuracy_decimals: 0
+    device_class: voltage
+    state_class: measurement
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui Compressor Hours"
+    id: pdc_compressor_hours
+    address: 122
+    register_type: holding
+    value_type: U_WORD
+    skip_updates: 5
+    unit_of_measurement: "h"
+    accuracy_decimals: 0
+    state_class: total_increasing
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui ODU Model Raw"
+    address: 123
+    register_type: holding
+    value_type: U_WORD
+    accuracy_decimals: 0
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui Current Fault"
+    id: pdc_fault_current
+    address: 124
+    register_type: holding
+    value_type: U_WORD
+    force_new_range: true
+    accuracy_decimals: 0
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui Fault 1"
+    id: pdc_fault_1
+    address: 125
+    register_type: holding
+    value_type: U_WORD
+    accuracy_decimals: 0
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui Fault 2"
+    id: pdc_fault_2
+    address: 126
+    register_type: holding
+    value_type: U_WORD
+    accuracy_decimals: 0
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui Fault 3"
+    id: pdc_fault_3
+    address: 127
+    register_type: holding
+    value_type: U_WORD
+    accuracy_decimals: 0
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui Status Bits Raw"
+    id: pdc_status_bits_raw
+    address: 128
+    register_type: holding
+    value_type: U_WORD
+    accuracy_decimals: 0
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui Output Bits Raw"
+    id: pdc_output_bits_raw
+    address: 129
+    register_type: holding
+    value_type: U_WORD
+    accuracy_decimals: 0
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui Target Frequency"
+    id: pdc_target_hz
+    address: 132
+    register_type: holding
+    value_type: U_WORD
+    unit_of_measurement: "Hz"
+    accuracy_decimals: 0
+    state_class: measurement
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui DC Bus Current Raw"
+    id: pdc_dc_bus_current_raw
+    address: 133
+    register_type: holding
+    value_type: U_WORD
+    force_new_range: true
+    skip_updates: 2
+    unit_of_measurement: "A"
+    accuracy_decimals: 0
+    state_class: measurement
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui DC Bus Voltage Raw"
+    id: pdc_dc_bus_voltage_raw
+    address: 134
+    register_type: holding
+    value_type: U_WORD
+    unit_of_measurement: "raw"
+    accuracy_decimals: 0
+    state_class: measurement
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui TF Module"
+    id: pdc_tf_module
+    address: 135
+    register_type: holding
+    value_type: S_WORD
+    unit_of_measurement: "\u00B0C"
+    accuracy_decimals: 0
+    device_class: temperature
+    state_class: measurement
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui Water Flow"
+    id: pdc_water_flow
+    address: 138
+    register_type: holding
+    value_type: U_WORD
+    unit_of_measurement: "m\u00B3/h"
+    accuracy_decimals: 2
+    state_class: measurement
+    filters:
+      - multiply: 0.01
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui Hydraulic Power"
+    id: pdc_hydraulic_power
+    address: 140
+    register_type: holding
+    value_type: U_WORD
+    unit_of_measurement: "kW"
+    accuracy_decimals: 2
+    device_class: power
+    state_class: measurement
+    filters:
+      - multiply: 0.01
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui Energy Consumption High Raw"
+    id: pdc_energy_consumption_high_raw
+    address: 143
+    register_type: holding
+    value_type: U_WORD
+    skip_updates: 5
+    accuracy_decimals: 0
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui Energy Consumption Low Raw"
+    id: pdc_energy_consumption_low_raw
+    address: 144
+    register_type: holding
+    value_type: U_WORD
+    accuracy_decimals: 0
+    entity_category: diagnostic
+
+  - platform: template
+    name: "PDC Mitsui Energy Consumption"
+    lambda: |-
+      if (!id(pdc_energy_consumption_high_raw).has_state() || !id(pdc_energy_consumption_low_raw).has_state()) return NAN;
+      return id(pdc_energy_consumption_high_raw).state * 65536.0f + id(pdc_energy_consumption_low_raw).state;
+    unit_of_measurement: "kWh"
+    accuracy_decimals: 0
+    device_class: energy
+    state_class: total_increasing
+
+  - platform: template
+    name: "PDC Mitsui DC Bus Voltage"
+    lambda: |-
+      if (!id(pdc_dc_bus_voltage_raw).has_state()) return NAN;
+      return id(pdc_dc_bus_voltage_raw).state * 10.0f;
+    unit_of_measurement: "V"
+    accuracy_decimals: 0
+    device_class: voltage
+    state_class: measurement
+    entity_category: diagnostic
+
+  - platform: template
+    name: "PDC Mitsui Thermal Power Estimated"
+    id: pdc_thermal_power_estimated
+    lambda: |-
+      if (!id(pdc_water_flow).has_state() || !id(pdc_water_in).has_state() || !id(pdc_water_out).has_state()) return NAN;
+      float delta = id(pdc_water_out).state - id(pdc_water_in).state;
+      if (id(pdc_mode_raw).has_state() && ((uint16_t) id(pdc_mode_raw).state) == 2) {
+        delta = id(pdc_water_in).state - id(pdc_water_out).state;
+      }
+      float kw = id(pdc_water_flow).state * delta * 1.163f;
+      if (kw < 0.0f) kw = 0.0f;
+      return kw;
+    unit_of_measurement: "kW"
+    accuracy_decimals: 2
+    device_class: power
+    state_class: measurement
+    update_interval: 10s
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui Home Appliance Type Raw"
+    address: 200
+    register_type: holding
+    value_type: U_WORD
+    skip_updates: 5
+    accuracy_decimals: 0
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui DHW Pump Running Time"
+    address: 209
+    register_type: holding
+    value_type: U_WORD
+    skip_updates: 5
+    unit_of_measurement: "min"
+    accuracy_decimals: 0
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui Parameter Setting 1 Raw"
+    id: pdc_parameter_setting_1_raw
+    address: 210
+    register_type: holding
+    value_type: U_WORD
+    accuracy_decimals: 0
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui Parameter Setting 2 Raw"
+    id: pdc_parameter_setting_2_raw
+    address: 211
+    register_type: holding
+    value_type: U_WORD
+    accuracy_decimals: 0
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui dT5 On"
+    address: 212
+    register_type: holding
+    value_type: U_WORD
+    unit_of_measurement: "\u00B0C"
+    accuracy_decimals: 0
+    device_class: temperature
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui dT1S5"
+    address: 213
+    register_type: holding
+    value_type: U_WORD
+    unit_of_measurement: "\u00B0C"
+    accuracy_decimals: 0
+    device_class: temperature
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui DHW Interval"
+    address: 214
+    register_type: holding
+    value_type: U_WORD
+    unit_of_measurement: "min"
+    accuracy_decimals: 0
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui T4 DHW Max"
+    address: 215
+    register_type: holding
+    value_type: U_WORD
+    unit_of_measurement: "\u00B0C"
+    accuracy_decimals: 0
+    device_class: temperature
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui T4 DHW Min"
+    address: 216
+    register_type: holding
+    value_type: S_WORD
+    unit_of_measurement: "\u00B0C"
+    accuracy_decimals: 0
+    device_class: temperature
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui TBH Delay"
+    address: 217
+    register_type: holding
+    value_type: U_WORD
+    unit_of_measurement: "min"
+    accuracy_decimals: 0
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui dT5 TBH Off"
+    address: 218
+    register_type: holding
+    value_type: U_WORD
+    unit_of_measurement: "\u00B0C"
+    accuracy_decimals: 0
+    device_class: temperature
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui T4 TBH On"
+    address: 219
+    register_type: holding
+    value_type: S_WORD
+    unit_of_measurement: "\u00B0C"
+    accuracy_decimals: 0
+    device_class: temperature
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui T5s Disinfection"
+    address: 220
+    register_type: holding
+    value_type: U_WORD
+    unit_of_measurement: "\u00B0C"
+    accuracy_decimals: 0
+    device_class: temperature
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui Disinfection Max Time"
+    address: 221
+    register_type: holding
+    value_type: U_WORD
+    unit_of_measurement: "min"
+    accuracy_decimals: 0
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui Disinfection High Temp Time"
+    address: 222
+    register_type: holding
+    value_type: U_WORD
+    unit_of_measurement: "min"
+    accuracy_decimals: 0
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui Cooling Interval Candidate"
+    address: 223
+    register_type: holding
+    value_type: U_WORD
+    unit_of_measurement: "min"
+    accuracy_decimals: 0
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui dT1SC"
+    address: 224
+    register_type: holding
+    value_type: U_WORD
+    unit_of_measurement: "\u00B0C"
+    accuracy_decimals: 0
+    device_class: temperature
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui dTSC"
+    address: 225
+    register_type: holding
+    value_type: U_WORD
+    unit_of_measurement: "\u00B0C"
+    accuracy_decimals: 0
+    device_class: temperature
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui T4 Cooling Max"
+    address: 226
+    register_type: holding
+    value_type: U_WORD
+    unit_of_measurement: "\u00B0C"
+    accuracy_decimals: 0
+    device_class: temperature
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui T4 Cooling Min"
+    address: 227
+    register_type: holding
+    value_type: S_WORD
+    unit_of_measurement: "\u00B0C"
+    accuracy_decimals: 0
+    device_class: temperature
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui Heating Interval Candidate"
+    address: 228
+    register_type: holding
+    value_type: U_WORD
+    unit_of_measurement: "min"
+    accuracy_decimals: 0
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui dT1SH"
+    address: 229
+    register_type: holding
+    value_type: U_WORD
+    unit_of_measurement: "\u00B0C"
+    accuracy_decimals: 0
+    device_class: temperature
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui dTSH"
+    address: 230
+    register_type: holding
+    value_type: U_WORD
+    unit_of_measurement: "\u00B0C"
+    accuracy_decimals: 0
+    device_class: temperature
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui T4 Heating Max"
+    address: 231
+    register_type: holding
+    value_type: U_WORD
+    unit_of_measurement: "\u00B0C"
+    accuracy_decimals: 0
+    device_class: temperature
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui T4 Heating Min"
+    address: 232
+    register_type: holding
+    value_type: S_WORD
+    unit_of_measurement: "\u00B0C"
+    accuracy_decimals: 0
+    device_class: temperature
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui DHW Heat Pump Max Time"
+    address: 241
+    register_type: holding
+    value_type: U_WORD
+    skip_updates: 5
+    unit_of_measurement: "min"
+    accuracy_decimals: 0
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui DHW Heat Pump Restrict Time"
+    address: 242
+    register_type: holding
+    value_type: U_WORD
+    unit_of_measurement: "min"
+    accuracy_decimals: 0
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui T4 Auto Cooling Min"
+    address: 243
+    register_type: holding
+    value_type: S_WORD
+    unit_of_measurement: "\u00B0C"
+    accuracy_decimals: 0
+    device_class: temperature
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui T4 Auto Heating Max"
+    address: 244
+    register_type: holding
+    value_type: S_WORD
+    unit_of_measurement: "\u00B0C"
+    accuracy_decimals: 0
+    device_class: temperature
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui Holiday Heating Setpoint"
+    address: 245
+    register_type: holding
+    value_type: U_WORD
+    unit_of_measurement: "\u00B0C"
+    accuracy_decimals: 0
+    device_class: temperature
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui Holiday DHW Setpoint"
+    address: 246
+    register_type: holding
+    value_type: U_WORD
+    unit_of_measurement: "\u00B0C"
+    accuracy_decimals: 0
+    device_class: temperature
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui First Floor Heating Setpoint"
+    address: 260
+    register_type: holding
+    value_type: U_WORD
+    skip_updates: 5
+    unit_of_measurement: "\u00B0C"
+    accuracy_decimals: 0
+    device_class: temperature
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui Cooling Curve T1 C1"
+    address: 261
+    register_type: holding
+    value_type: U_WORD
+    unit_of_measurement: "\u00B0C"
+    accuracy_decimals: 0
+    device_class: temperature
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui Cooling Curve T1 C2"
+    address: 262
+    register_type: holding
+    value_type: U_WORD
+    unit_of_measurement: "\u00B0C"
+    accuracy_decimals: 0
+    device_class: temperature
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui Cooling Curve T4 C1"
+    address: 263
+    register_type: holding
+    value_type: S_WORD
+    unit_of_measurement: "\u00B0C"
+    accuracy_decimals: 0
+    device_class: temperature
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui Cooling Curve T4 C2"
+    address: 264
+    register_type: holding
+    value_type: S_WORD
+    unit_of_measurement: "\u00B0C"
+    accuracy_decimals: 0
+    device_class: temperature
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui Heating Curve T1 H1"
+    address: 265
+    register_type: holding
+    value_type: U_WORD
+    unit_of_measurement: "\u00B0C"
+    accuracy_decimals: 0
+    device_class: temperature
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui Heating Curve T1 H2"
+    address: 266
+    register_type: holding
+    value_type: U_WORD
+    unit_of_measurement: "\u00B0C"
+    accuracy_decimals: 0
+    device_class: temperature
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui Heating Curve T4 H1"
+    address: 267
+    register_type: holding
+    value_type: S_WORD
+    unit_of_measurement: "\u00B0C"
+    accuracy_decimals: 0
+    device_class: temperature
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui Heating Curve T4 H2"
+    address: 268
+    register_type: holding
+    value_type: S_WORD
+    unit_of_measurement: "\u00B0C"
+    accuracy_decimals: 0
+    device_class: temperature
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui Power Input Limitation Type"
+    address: 269
+    register_type: holding
+    value_type: U_WORD
+    accuracy_decimals: 0
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui T4 Fresh Packed Raw"
+    id: pdc_t4_fresh_packed_raw
+    address: 270
+    register_type: holding
+    value_type: U_WORD
+    accuracy_decimals: 0
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui Pump I Delay Raw"
+    address: 271
+    register_type: holding
+    value_type: U_WORD
+    accuracy_decimals: 0
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui Emission Type Raw"
+    id: pdc_emission_type_raw
+    address: 272
+    register_type: holding
+    value_type: U_WORD
+    accuracy_decimals: 0
+    entity_category: diagnostic
+
+number:
+  - platform: modbus_controller
+    modbus_controller_id: pdc
+    name: "PDC Mitsui Setpoint Water Target"
+    id: pdc_setpoint_water_target
+    address: 11
+    register_type: holding
+    value_type: U_WORD
+    unit_of_measurement: "\u00B0C"
+    device_class: temperature
+    entity_category: config
+    min_value: 5
+    max_value: 60
+    step: 1
+    mode: box
+    lambda: |-
+      return x;
+    write_lambda: |-
+      if (!id(pdc_mode_raw).has_state()) {
+        ESP_LOGW("pdc", "Refusing water setpoint write %.0f C: operating mode unavailable", x);
+        return {};
+      }
+      uint16_t mode = (uint16_t) id(pdc_mode_raw).state;
+      if (mode == 2 && (x < 5 || x > 25)) {
+        ESP_LOGW("pdc", "Refusing cooling water setpoint write %.0f C outside 5..25 C", x);
+        return {};
+      }
+      if (mode == 3 && (x < 25 || x > 60)) {
+        ESP_LOGW("pdc", "Refusing heating water setpoint write %.0f C outside 25..60 C", x);
+        return {};
+      }
+      if (mode != 2 && mode != 3) {
+        ESP_LOGW("pdc", "Refusing water setpoint write %.0f C: unsupported mode %u", x, mode);
+        return {};
+      }
+      return x;
+
+text_sensor:
+  - platform: version
+    name: "PDC Mitsui ESPHome Version"
+    entity_category: diagnostic
+
+  - platform: template
+    name: "PDC Mitsui Operating Mode"
+    icon: mdi:heat-pump
+    lambda: |-
+      if (!id(pdc_mode_raw).has_state()) return std::string("unknown");
+      switch ((uint16_t) id(pdc_mode_raw).state) {
+        case 0: return std::string("off");
+        case 1: return std::string("auto");
+        case 2: return std::string("cooling");
+        case 3: return std::string("heating");
+        default: return std::string("unknown");
+      }
+    update_interval: 10s
+
+  - platform: template
+    name: "PDC Mitsui Mode Set"
+    icon: mdi:heat-pump-outline
+    lambda: |-
+      if (!id(pdc_mode_set_raw).has_state()) return std::string("unknown");
+      switch ((uint16_t) id(pdc_mode_set_raw).state) {
+        case 0: return std::string("off");
+        case 1: return std::string("auto");
+        case 2: return std::string("cooling");
+        case 3: return std::string("heating");
+        default: return std::string("unknown");
+      }
+    update_interval: 10s
+
+binary_sensor:
+  - platform: status
+    name: "PDC Mitsui ESP32 Status"
+    entity_category: diagnostic
+
+  - platform: template
+    name: "PDC Mitsui Defrosting"
+    lambda: |-
+      return id(pdc_status_bits_raw).has_state() && (((uint16_t) id(pdc_status_bits_raw).state) & (1 << 1));
+
+  - platform: template
+    name: "PDC Mitsui Antifreeze"
+    lambda: |-
+      return id(pdc_status_bits_raw).has_state() && (((uint16_t) id(pdc_status_bits_raw).state) & (1 << 2));
+
+  - platform: template
+    name: "PDC Mitsui Remote On Off"
+    lambda: |-
+      return id(pdc_status_bits_raw).has_state() && (((uint16_t) id(pdc_status_bits_raw).state) & (1 << 4));
+
+  - platform: template
+    name: "PDC Mitsui Room Stat Heating"
+    lambda: |-
+      return id(pdc_status_bits_raw).has_state() && (((uint16_t) id(pdc_status_bits_raw).state) & (1 << 6));
+
+  - platform: template
+    name: "PDC Mitsui Room Stat Cooling"
+    lambda: |-
+      return id(pdc_status_bits_raw).has_state() && (((uint16_t) id(pdc_status_bits_raw).state) & (1 << 7));
+
+  - platform: template
+    name: "PDC Mitsui Solar Input"
+    lambda: |-
+      return id(pdc_status_bits_raw).has_state() && (((uint16_t) id(pdc_status_bits_raw).state) & (1 << 8));
+
+  - platform: template
+    name: "PDC Mitsui SG Normal Price"
+    lambda: |-
+      return id(pdc_status_bits_raw).has_state() && (((uint16_t) id(pdc_status_bits_raw).state) & (1 << 10));
+
+  - platform: template
+    name: "PDC Mitsui EUV Free Electricity"
+    lambda: |-
+      return id(pdc_status_bits_raw).has_state() && (((uint16_t) id(pdc_status_bits_raw).state) & (1 << 11));
+
+  - platform: template
+    name: "PDC Mitsui Pump I"
+    lambda: |-
+      return id(pdc_output_bits_raw).has_state() && (((uint16_t) id(pdc_output_bits_raw).state) & (1 << 3));
+
+  - platform: template
+    name: "PDC Mitsui SV1"
+    lambda: |-
+      return id(pdc_output_bits_raw).has_state() && (((uint16_t) id(pdc_output_bits_raw).state) & (1 << 4));
+
+  - platform: template
+    name: "PDC Mitsui Output Bit 5"
+    entity_category: diagnostic
+    lambda: |-
+      return id(pdc_output_bits_raw).has_state() && (((uint16_t) id(pdc_output_bits_raw).state) & (1 << 5));
+
+  - platform: template
+    name: "PDC Mitsui SV2 Doc Bit 9"
+    entity_category: diagnostic
+    lambda: |-
+      return id(pdc_output_bits_raw).has_state() && (((uint16_t) id(pdc_output_bits_raw).state) & (1 << 9));
+
+  - platform: template
+    name: "PDC Mitsui Pump O"
+    lambda: |-
+      return id(pdc_output_bits_raw).has_state() && (((uint16_t) id(pdc_output_bits_raw).state) & (1 << 6));
+
+  - platform: template
+    name: "PDC Mitsui Alarm"
+    device_class: problem
+    lambda: |-
+      return id(pdc_output_bits_raw).has_state() && (((uint16_t) id(pdc_output_bits_raw).state) & (1 << 12));
+
+  - platform: template
+    name: "PDC Mitsui Run"
+    device_class: running
+    lambda: |-
+      return id(pdc_output_bits_raw).has_state() && (((uint16_t) id(pdc_output_bits_raw).state) & (1 << 13));
+
+button:
+  - platform: restart
+    name: "PDC Mitsui ESP32 Restart"
+    entity_category: diagnostic

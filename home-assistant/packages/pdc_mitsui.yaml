@@ -1,0 +1,1191 @@
+# Home Assistant package - PDC Mitsui ESPHome production
+#
+# Replaces the Raspberry REST exporter package. Keep the filename pdc_mitsui.yaml
+# when installing, after backing up the old RPi package.
+# Source: ESPHome node pdc-mitsui-esp32 / Waveshare ESP32-S3-RS485-CAN.
+
+input_number:
+  pdc_mitsui_min_flow_warning:
+    name: "PDC Mitsui soglia portata warning"
+    min: 0
+    max: 3
+    step: 0.05
+    initial: 0.30
+    unit_of_measurement: "m³/h"
+    mode: box
+
+  pdc_mitsui_electrical_active_power_threshold:
+    name: "PDC Mitsui soglia elettrica attiva"
+    min: 50
+    max: 1500
+    step: 10
+    initial: 300
+    unit_of_measurement: "W"
+    mode: box
+
+  pdc_mitsui_electrical_active_current_threshold:
+    name: "PDC Mitsui soglia corrente attiva"
+    min: 0.1
+    max: 10
+    step: 0.1
+    initial: 1.2
+    unit_of_measurement: "A"
+    mode: box
+
+  pdc_mitsui_mandata_target:
+    name: "PDC Mitsui mandata da scrivere"
+    min: 5
+    max: 65
+    step: 1
+    initial: 23
+    unit_of_measurement: "°C"
+    mode: box
+
+  clima_setpoint_tutti:
+    name: "CLIMA setpoint tutti"
+    min: 5
+    max: 35
+    step: 0.5
+    initial: 23
+    unit_of_measurement: "°C"
+    mode: box
+
+  clima_setpoint_zona_notte:
+    name: "CLIMA setpoint zona notte"
+    min: 5
+    max: 35
+    step: 0.5
+    initial: 23
+    unit_of_measurement: "°C"
+    mode: box
+
+  clima_setpoint_zona_giorno:
+    name: "CLIMA setpoint zona giorno"
+    min: 5
+    max: 35
+    step: 0.5
+    initial: 23
+    unit_of_measurement: "°C"
+    mode: box
+
+  clima_setpoint_p2:
+    name: "CLIMA setpoint P2"
+    min: 5
+    max: 35
+    step: 0.5
+    initial: 23
+    unit_of_measurement: "°C"
+    mode: box
+
+
+input_text:
+  pdc_mitsui_last_setpoint_write_raw:
+    name: "PDC Mitsui ultima scrittura mandata raw"
+    max: 255
+    initial: "none"
+
+input_boolean:
+  pdc_mitsui_auto_protection_enabled:
+    name: "PDC Mitsui protezioni automatiche"
+    icon: mdi:shield-check
+    initial: true
+
+  pdc_mitsui_auto_reset_enabled:
+    name: "PDC Mitsui reset Shelly automatico"
+    icon: mdi:restart-alert
+    initial: true
+
+  pdc_mitsui_ac_lan_fallback_enabled:
+    name: "PDC Mitsui fallback AC LAN"
+    icon: mdi:backup-restore
+    initial: true
+
+template:
+  - sensor:
+      - name: "PDC Mitsui Exporter"
+        unique_id: pdc_mitsui_exporter
+        state: >-
+          {% if is_state('binary_sensor.pdc_mitsui_esp32_pdc_mitsui_esp32_status', 'on') %}
+            online
+          {% else %}
+            offline
+          {% endif %}
+        attributes:
+          ok: "{{ is_state('binary_sensor.pdc_mitsui_esp32_pdc_mitsui_esp32_status', 'on') }}"
+          age_s: >-
+            {% if is_state('binary_sensor.pdc_mitsui_esp32_pdc_mitsui_esp32_status', 'on') %}0{% else %}999{% endif %}
+          poll_duration_s: 0
+          error: >-
+            {% if is_state('binary_sensor.pdc_mitsui_esp32_pdc_mitsui_esp32_status', 'on') %}{{ none }}{% else %}esp32 offline{% endif %}
+          errors: >-
+            {% if is_state('binary_sensor.pdc_mitsui_esp32_pdc_mitsui_esp32_status', 'on') %}
+              {{ {} }}
+            {% else %}
+              {{ {'esp32': 'offline'} }}
+            {% endif %}
+          last_command: "{{ states('input_text.pdc_mitsui_last_setpoint_write_raw') }}"
+
+      - name: "PDC Mitsui State"
+        unique_id: pdc_mitsui_state
+        state: >-
+          {% if is_state('binary_sensor.pdc_mitsui_esp32_pdc_mitsui_esp32_status', 'on') %}
+            {{ states('sensor.pdc_mitsui_esp32_pdc_mitsui_operating_mode') }}
+          {% else %}
+            unavailable
+          {% endif %}
+        attributes:
+          mode: "{{ states('sensor.pdc_mitsui_esp32_pdc_mitsui_operating_mode_raw') | int(0) }}"
+          mode_label: "{{ states('sensor.pdc_mitsui_esp32_pdc_mitsui_operating_mode') }}"
+          mode_set: "{{ states('sensor.pdc_mitsui_esp32_pdc_mitsui_mode_set_raw') | int(0) }}"
+          mode_set_label: "{{ states('sensor.pdc_mitsui_esp32_pdc_mitsui_mode_set') }}"
+          setpoint_c: "{{ states('sensor.pdc_mitsui_esp32_pdc_mitsui_setpoint_water') | float(0) }}"
+          setpoint_word: >-
+            {% set raw = states('sensor.pdc_mitsui_esp32_pdc_mitsui_setpoint_word_raw') | int(0) %}
+            {% set hb = states('sensor.pdc_mitsui_esp32_pdc_mitsui_setpoint_word_high_byte') | int(0) %}
+            {% set lb = states('sensor.pdc_mitsui_esp32_pdc_mitsui_setpoint_word_low_byte') | int(0) %}
+            {{ {'raw': raw, 'hex': '0x%04X' % raw, 'hb': hb, 'lb': lb} }}
+          water_in_c: "{{ states('sensor.pdc_mitsui_esp32_pdc_mitsui_water_inlet') | float(0) }}"
+          water_out_c: "{{ states('sensor.pdc_mitsui_esp32_pdc_mitsui_water_outlet') | float(0) }}"
+          delta_t_c: "{{ states('sensor.pdc_mitsui_esp32_pdc_mitsui_delta_t_outlet_minus_inlet') | float(0) }}"
+          delta_out_minus_in_c: "{{ states('sensor.pdc_mitsui_esp32_pdc_mitsui_delta_t_outlet_minus_inlet') | float(0) }}"
+          delta_in_minus_out_c: >-
+            {{ ((states('sensor.pdc_mitsui_esp32_pdc_mitsui_water_inlet') | float(0)) -
+                (states('sensor.pdc_mitsui_esp32_pdc_mitsui_water_outlet') | float(0))) | round(1) }}
+          thermal_delta_c: >-
+            {% set mode = states('sensor.pdc_mitsui_esp32_pdc_mitsui_operating_mode') %}
+            {% set out_in = states('sensor.pdc_mitsui_esp32_pdc_mitsui_delta_t_outlet_minus_inlet') | float(0) %}
+            {% set in_out = 0 - out_in %}
+            {% if mode == 'cooling' %}{{ in_out | round(1) }}{% elif mode == 'heating' %}{{ out_in | round(1) }}{% else %}{{ (out_in | abs) | round(1) }}{% endif %}
+          thermal_power_calc_kw: "{{ states('sensor.pdc_mitsui_esp32_pdc_mitsui_thermal_power_estimated') | float(0) }}"
+          t1_total_out_c: "{{ states('sensor.pdc_mitsui_esp32_pdc_mitsui_t1_total_water_outlet') | float(0) }}"
+          t1b_aux_out_c: "{{ states('sensor.pdc_mitsui_esp32_pdc_mitsui_t1b_aux_outlet') | float(0) }}"
+          t3_coil_c: "{{ states('sensor.pdc_mitsui_esp32_pdc_mitsui_t3_condenser') | float(0) }}"
+          t4_outdoor_c: "{{ states('sensor.pdc_mitsui_esp32_pdc_mitsui_t4_outdoor') | float(0) }}"
+          t2_refrigerant_out_c: "{{ states('sensor.pdc_mitsui_esp32_pdc_mitsui_t2_refrigerant_liquid') | float(0) }}"
+          t2b_refrigerant_in_c: "{{ states('sensor.pdc_mitsui_esp32_pdc_mitsui_t2b_refrigerant_gas') | float(0) }}"
+          th_suction_c: "{{ states('sensor.pdc_mitsui_esp32_pdc_mitsui_th_suction') | float(0) }}"
+          tp_discharge_c: "{{ states('sensor.pdc_mitsui_esp32_pdc_mitsui_tp_discharge') | float(0) }}"
+          tf_module_c: "{{ states('sensor.pdc_mitsui_esp32_pdc_mitsui_tf_module') | float(0) }}"
+          ta_room_c: "{{ states('sensor.pdc_mitsui_esp32_pdc_mitsui_ta_room') | float(0) }}"
+          t5_tank_c: "{{ states('sensor.pdc_mitsui_esp32_pdc_mitsui_t5_tank') | float(0) }}"
+          flow_m3h: "{{ states('sensor.pdc_mitsui_esp32_pdc_mitsui_water_flow') | float(0) }}"
+          hydraulic_power_kw: "{{ states('sensor.pdc_mitsui_esp32_pdc_mitsui_hydraulic_power') | float(0) }}"
+          energy_consumption_kwh: "{{ states('sensor.pdc_mitsui_esp32_pdc_mitsui_energy_consumption') | float(0) }}"
+          pmv_steps: "{{ states('sensor.pdc_mitsui_esp32_pdc_mitsui_pmv_steps') | int(0) }}"
+          pmv_percent: "{{ states('sensor.pdc_mitsui_esp32_pdc_mitsui_pmv_percent') | float(0) }}"
+          compressor_hz: "{{ states('sensor.pdc_mitsui_esp32_pdc_mitsui_compressor_frequency') | float(0) }}"
+          compressor_current_a: "{{ states('sensor.pdc_mitsui_esp32_pdc_mitsui_outdoor_current_raw') | float(0) }}"
+          target_hz: "{{ states('sensor.pdc_mitsui_esp32_pdc_mitsui_target_frequency') | float(0) }}"
+          fan_rpm: "{{ states('sensor.pdc_mitsui_esp32_pdc_mitsui_fan_speed') | float(0) }}"
+          voltage_v: "{{ states('sensor.pdc_mitsui_esp32_pdc_mitsui_outdoor_voltage') | float(0) }}"
+          dc_bus_voltage_v: "{{ states('sensor.pdc_mitsui_esp32_pdc_mitsui_dc_bus_voltage') | float(0) }}"
+          dc_bus_current_a: "{{ states('sensor.pdc_mitsui_esp32_pdc_mitsui_dc_bus_current_raw') | float(0) }}"
+          pressure_high_kpa: "{{ states('sensor.pdc_mitsui_esp32_pdc_mitsui_high_pressure') | float(0) }}"
+          pressure_low_kpa: "{{ states('sensor.pdc_mitsui_esp32_pdc_mitsui_low_pressure') | float(0) }}"
+          compressor_hours: "{{ states('sensor.pdc_mitsui_esp32_pdc_mitsui_compressor_hours') | float(0) }}"
+          odu_model_kw: "{{ states('sensor.pdc_mitsui_esp32_pdc_mitsui_odu_model_raw') | int(0) }}"
+          fault_current: "{{ states('sensor.pdc_mitsui_esp32_pdc_mitsui_current_fault') | int(0) }}"
+          fault_1: "{{ states('sensor.pdc_mitsui_esp32_pdc_mitsui_fault_1') | int(0) }}"
+          fault_2: "{{ states('sensor.pdc_mitsui_esp32_pdc_mitsui_fault_2') | int(0) }}"
+          fault_3: "{{ states('sensor.pdc_mitsui_esp32_pdc_mitsui_fault_3') | int(0) }}"
+          status_bits: >-
+            {% set v = states('sensor.pdc_mitsui_esp32_pdc_mitsui_status_bits_raw') | int(0) %}{{ '0x%04X' % v }}
+          output_bits: >-
+            {% set v = states('sensor.pdc_mitsui_esp32_pdc_mitsui_output_bits_raw') | int(0) %}{{ '0x%04X' % v }}
+          defrosting: "{{ is_state('binary_sensor.pdc_mitsui_esp32_pdc_mitsui_defrosting', 'on') }}"
+          antifreeze: "{{ is_state('binary_sensor.pdc_mitsui_esp32_pdc_mitsui_antifreeze', 'on') }}"
+          remote_onoff: "{{ is_state('binary_sensor.pdc_mitsui_esp32_pdc_mitsui_remote_on_off', 'on') }}"
+          room_stat_heating: "{{ is_state('binary_sensor.pdc_mitsui_esp32_pdc_mitsui_room_stat_heating', 'on') }}"
+          room_stat_cooling: "{{ is_state('binary_sensor.pdc_mitsui_esp32_pdc_mitsui_room_stat_cooling', 'on') }}"
+          solar_input: "{{ is_state('binary_sensor.pdc_mitsui_esp32_pdc_mitsui_solar_input', 'on') }}"
+          sg_normal_price: "{{ is_state('binary_sensor.pdc_mitsui_esp32_pdc_mitsui_sg_normal_price', 'on') }}"
+          euv_free_electricity: "{{ is_state('binary_sensor.pdc_mitsui_esp32_pdc_mitsui_euv_free_electricity', 'on') }}"
+          pump_i: "{{ is_state('binary_sensor.pdc_mitsui_esp32_pdc_mitsui_pump_i', 'on') }}"
+          pump_o: "{{ is_state('binary_sensor.pdc_mitsui_esp32_pdc_mitsui_pump_o', 'on') }}"
+          sv1: "{{ is_state('binary_sensor.pdc_mitsui_esp32_pdc_mitsui_sv1', 'on') }}"
+          sv2_doc_bit9: "{{ is_state('binary_sensor.pdc_mitsui_esp32_pdc_mitsui_sv2_doc_bit_9', 'on') }}"
+          output_bit5: "{{ is_state('binary_sensor.pdc_mitsui_esp32_pdc_mitsui_output_bit_5', 'on') }}"
+          run: "{{ is_state('binary_sensor.pdc_mitsui_esp32_pdc_mitsui_run', 'on') }}"
+          alarm: "{{ is_state('binary_sensor.pdc_mitsui_esp32_pdc_mitsui_alarm', 'on') }}"
+          emission_word: >-
+            {% set raw = states('sensor.pdc_mitsui_esp32_pdc_mitsui_emission_type_raw') | int(0) %}
+            {{ {'raw': raw, 'hex': '0x%04X' % raw, 'hb': (raw // 256), 'lb': (raw % 256)} }}
+          t4_fresh_word: >-
+            {% set raw = states('sensor.pdc_mitsui_esp32_pdc_mitsui_t4_fresh_packed_raw') | int(0) %}
+            {{ {'raw': raw, 'hex': '0x%04X' % raw, 'hb': (raw // 256), 'lb': (raw % 256)} }}
+
+      - name: "PDC Mitsui Richiesta VIMAR"
+        unique_id: pdc_mitsui_richiesta_vimar
+        icon: mdi:electric-switch
+        state: >-
+          {% set caldo = is_state('switch.pdc_caldo', 'on') %}
+          {% set freddo = is_state('switch.pdc_freddo', 'on') %}
+          {% if caldo and freddo %}
+            invalid_both_on
+          {% elif freddo %}
+            cooling
+          {% elif caldo %}
+            heating
+          {% else %}
+            off
+          {% endif %}
+        attributes:
+          pdc_caldo: "{{ states('switch.pdc_caldo') }}"
+          pdc_freddo: "{{ states('switch.pdc_freddo') }}"
+          expected_method: "Metodo A / TERMOSTATO AMB. = IMPOSTA MODO"
+
+      - name: "CLIMA Zone Calling Total"
+        unique_id: clima_zone_calling_total
+        icon: mdi:home-thermometer-outline
+        state: >-
+          {% set zones = [
+            'climate.clima_bagno',
+            'climate.clima_camera',
+            'climate.clima_cameretta',
+            'climate.clima_cucina',
+            'climate.clima_sala_da_pranzo',
+            'climate.clima_salotto',
+            'climate.termostato_bagno_servizio',
+            'climate.termostato_padronale_p2',
+            'climate.termostato_sala_sud',
+            'climate.termostato_stanza_ovest_p2',
+            'climate.termostato_stanza_sud'
+          ] %}
+          {% set ns = namespace(n=0) %}
+          {% for e in zones %}
+            {% if state_attr(e, 'hvac_action') in ['heating', 'cooling'] %}
+              {% set ns.n = ns.n + 1 %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.n }}
+
+      - name: "CLIMA Zone Heating Total"
+        unique_id: clima_zone_heating_total
+        icon: mdi:fire
+        state: >-
+          {% set zones = [
+            'climate.clima_bagno',
+            'climate.clima_camera',
+            'climate.clima_cameretta',
+            'climate.clima_cucina',
+            'climate.clima_sala_da_pranzo',
+            'climate.clima_salotto',
+            'climate.termostato_bagno_servizio',
+            'climate.termostato_padronale_p2',
+            'climate.termostato_sala_sud',
+            'climate.termostato_stanza_ovest_p2',
+            'climate.termostato_stanza_sud'
+          ] %}
+          {% set ns = namespace(n=0) %}
+          {% for e in zones %}
+            {% if state_attr(e, 'hvac_action') == 'heating' %}
+              {% set ns.n = ns.n + 1 %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.n }}
+
+      - name: "CLIMA Zone Cooling Total"
+        unique_id: clima_zone_cooling_total
+        icon: mdi:snowflake
+        state: >-
+          {% set zones = [
+            'climate.clima_bagno',
+            'climate.clima_camera',
+            'climate.clima_cameretta',
+            'climate.clima_cucina',
+            'climate.clima_sala_da_pranzo',
+            'climate.clima_salotto',
+            'climate.termostato_bagno_servizio',
+            'climate.termostato_padronale_p2',
+            'climate.termostato_sala_sud',
+            'climate.termostato_stanza_ovest_p2',
+            'climate.termostato_stanza_sud'
+          ] %}
+          {% set ns = namespace(n=0) %}
+          {% for e in zones %}
+            {% if state_attr(e, 'hvac_action') == 'cooling' %}
+              {% set ns.n = ns.n + 1 %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.n }}
+
+      - name: "CLIMA Zone Mode On Total"
+        unique_id: clima_zone_mode_on_total
+        icon: mdi:home-lightning-bolt
+        state: >-
+          {% set zones = [
+            'climate.clima_bagno',
+            'climate.clima_camera',
+            'climate.clima_cameretta',
+            'climate.clima_cucina',
+            'climate.clima_sala_da_pranzo',
+            'climate.clima_salotto',
+            'climate.termostato_bagno_servizio',
+            'climate.termostato_padronale_p2',
+            'climate.termostato_sala_sud',
+            'climate.termostato_stanza_ovest_p2',
+            'climate.termostato_stanza_sud'
+          ] %}
+          {% set ns = namespace(n=0) %}
+          {% for e in zones %}
+            {% if states(e) not in ['off', 'unknown', 'unavailable'] %}
+              {% set ns.n = ns.n + 1 %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.n }}
+
+      - name: "PDC Mitsui Richiesta PDC Coerente"
+        unique_id: pdc_mitsui_richiesta_pdc_coerente
+        icon: mdi:check-network-outline
+        state: >-
+          {% set req = states('sensor.pdc_mitsui_richiesta_vimar') %}
+          {% set calling = states('sensor.clima_zone_calling_total') | int(0) %}
+          {% set heating = states('sensor.clima_zone_heating_total') | int(0) %}
+          {% set cooling = states('sensor.clima_zone_cooling_total') | int(0) %}
+          {% if req == 'invalid_both_on' %}
+            invalid_both_on
+          {% elif req == 'off' and calling > 0 %}
+            pdc_off_with_zone_call
+          {% elif req == 'cooling' and heating > 0 and cooling == 0 %}
+            mismatch_heating_zone_call
+          {% elif req == 'heating' and cooling > 0 and heating == 0 %}
+            mismatch_cooling_zone_call
+          {% elif req in ['cooling', 'heating'] and calling == 0 %}
+            pdc_on_no_zone_call
+          {% else %}
+            ok
+          {% endif %}
+
+      - name: "PDC Mitsui Last Setpoint Write"
+        unique_id: pdc_mitsui_last_setpoint_write
+        icon: mdi:pencil-box-outline
+        state: "{{ states('input_text.pdc_mitsui_last_setpoint_write_raw') }}"
+      - name: "PDC Mitsui Setpoint"
+        unique_id: pdc_mitsui_setpoint
+        device_class: temperature
+        unit_of_measurement: "°C"
+        state: "{{ state_attr('sensor.pdc_mitsui_state', 'setpoint_c') }}"
+
+      - name: "PDC Mitsui Mode"
+        unique_id: pdc_mitsui_mode
+        state: "{{ state_attr('sensor.pdc_mitsui_state', 'mode_label') }}"
+
+      - name: "PDC Mitsui Hydraulic State"
+        unique_id: pdc_mitsui_hydraulic_state
+        state: >-
+          {% set online = is_state('binary_sensor.pdc_mitsui_telemetry_online', 'on') %}
+          {% set alarm = is_state('binary_sensor.pdc_mitsui_alarm', 'on') %}
+          {% set pump = is_state('binary_sensor.pdc_mitsui_pump_i', 'on') %}
+          {% set flow = states('sensor.pdc_mitsui_flow') | float(0) %}
+          {% set min_flow = states('input_number.pdc_mitsui_min_flow_warning') | float(0.30) %}
+          {% set hz = states('sensor.pdc_mitsui_compressor_frequency') | float(0) %}
+          {% if not online %}
+            offline
+          {% elif alarm %}
+            alarm
+          {% elif hz > 0 and pump and flow >= min_flow %}
+            producing
+          {% elif hz > 0 and pump and flow < min_flow %}
+            producing_low_flow
+          {% elif pump and flow >= min_flow %}
+            circulating
+          {% elif pump and flow < min_flow %}
+            low_flow
+          {% else %}
+            idle
+          {% endif %}
+
+      - name: "PDC Mitsui Water In"
+        unique_id: pdc_mitsui_water_in
+        device_class: temperature
+        unit_of_measurement: "°C"
+        state: "{{ state_attr('sensor.pdc_mitsui_state', 'water_in_c') }}"
+
+      - name: "PDC Mitsui Water Out"
+        unique_id: pdc_mitsui_water_out
+        device_class: temperature
+        unit_of_measurement: "°C"
+        state: "{{ state_attr('sensor.pdc_mitsui_state', 'water_out_c') }}"
+
+      - name: "PDC Mitsui Delta T"
+        unique_id: pdc_mitsui_delta_t
+        device_class: temperature
+        unit_of_measurement: "°C"
+        state: "{{ state_attr('sensor.pdc_mitsui_state', 'delta_t_c') }}"
+
+      - name: "PDC Mitsui Delta Cooling"
+        unique_id: pdc_mitsui_delta_cooling
+        device_class: temperature
+        unit_of_measurement: "°C"
+        state: "{{ state_attr('sensor.pdc_mitsui_state', 'delta_in_minus_out_c') }}"
+
+      - name: "PDC Mitsui Delta Termico"
+        unique_id: pdc_mitsui_thermal_delta
+        device_class: temperature
+        unit_of_measurement: "°C"
+        state: "{{ state_attr('sensor.pdc_mitsui_state', 'thermal_delta_c') }}"
+
+      - name: "PDC Mitsui Outdoor"
+        unique_id: pdc_mitsui_outdoor
+        device_class: temperature
+        unit_of_measurement: "°C"
+        state: "{{ state_attr('sensor.pdc_mitsui_state', 't4_outdoor_c') }}"
+
+      - name: "PDC Mitsui Room"
+        unique_id: pdc_mitsui_room
+        device_class: temperature
+        unit_of_measurement: "°C"
+        state: "{{ state_attr('sensor.pdc_mitsui_state', 'ta_room_c') }}"
+
+      - name: "PDC Mitsui Tank"
+        unique_id: pdc_mitsui_tank
+        device_class: temperature
+        unit_of_measurement: "°C"
+        state: "{{ state_attr('sensor.pdc_mitsui_state', 't5_tank_c') }}"
+
+      - name: "PDC Mitsui T2 Refrigerant Out"
+        unique_id: pdc_mitsui_t2_refrigerant_out
+        device_class: temperature
+        unit_of_measurement: "°C"
+        state: "{{ state_attr('sensor.pdc_mitsui_state', 't2_refrigerant_out_c') }}"
+
+      - name: "PDC Mitsui T2B Refrigerant In"
+        unique_id: pdc_mitsui_t2b_refrigerant_in
+        device_class: temperature
+        unit_of_measurement: "°C"
+        state: "{{ state_attr('sensor.pdc_mitsui_state', 't2b_refrigerant_in_c') }}"
+
+      - name: "PDC Mitsui Th Suction"
+        unique_id: pdc_mitsui_th_suction
+        device_class: temperature
+        unit_of_measurement: "°C"
+        state: "{{ state_attr('sensor.pdc_mitsui_state', 'th_suction_c') }}"
+
+      - name: "PDC Mitsui Tp Discharge"
+        unique_id: pdc_mitsui_tp_discharge
+        device_class: temperature
+        unit_of_measurement: "°C"
+        state: "{{ state_attr('sensor.pdc_mitsui_state', 'tp_discharge_c') }}"
+
+      - name: "PDC Mitsui TF Module"
+        unique_id: pdc_mitsui_tf_module
+        device_class: temperature
+        unit_of_measurement: "°C"
+        state: "{{ state_attr('sensor.pdc_mitsui_state', 'tf_module_c') }}"
+
+      - name: "PDC Mitsui Flow"
+        unique_id: pdc_mitsui_flow
+        unit_of_measurement: "m³/h"
+        state: "{{ state_attr('sensor.pdc_mitsui_state', 'flow_m3h') }}"
+
+      - name: "PDC Mitsui Flow Margin"
+        unique_id: pdc_mitsui_flow_margin
+        unit_of_measurement: "m³/h"
+        state: >-
+          {{ ((states('sensor.pdc_mitsui_flow') | float(0)) -
+              (states('input_number.pdc_mitsui_min_flow_warning') | float(0))) | round(2) }}
+        availability: >-
+          {{ states('sensor.pdc_mitsui_flow') | is_number
+             and states('input_number.pdc_mitsui_min_flow_warning') | is_number }}
+
+      - name: "PDC Mitsui Setpoint Word Raw"
+        unique_id: pdc_mitsui_setpoint_word_raw
+        state: "{{ state_attr('sensor.pdc_mitsui_state', 'setpoint_word')['raw'] }}"
+
+      - name: "PDC Mitsui Setpoint Word HB"
+        unique_id: pdc_mitsui_setpoint_word_hb
+        device_class: temperature
+        unit_of_measurement: "°C"
+        state: >-
+          {% set word = state_attr('sensor.pdc_mitsui_state', 'setpoint_word') %}
+          {{ word.get('hb', 0) | float(0) if word is mapping else 0 }}
+        availability: >-
+          {% set word = state_attr('sensor.pdc_mitsui_state', 'setpoint_word') %}
+          {{ word is mapping and word.get('hb') is number }}
+
+      - name: "PDC Mitsui Setpoint Word LB"
+        unique_id: pdc_mitsui_setpoint_word_lb
+        device_class: temperature
+        unit_of_measurement: "°C"
+        state: >-
+          {% set word = state_attr('sensor.pdc_mitsui_state', 'setpoint_word') %}
+          {{ word.get('lb', 0) | float(0) if word is mapping else 0 }}
+        availability: >-
+          {% set word = state_attr('sensor.pdc_mitsui_state', 'setpoint_word') %}
+          {{ word is mapping and word.get('lb') is number }}
+
+      - name: "PDC Mitsui Setpoint Delta Word"
+        unique_id: pdc_mitsui_setpoint_delta_word
+        device_class: temperature
+        unit_of_measurement: "°C"
+        state: >-
+          {% set sp = state_attr('sensor.pdc_mitsui_state', 'setpoint_c') %}
+          {% set word = state_attr('sensor.pdc_mitsui_state', 'setpoint_word') %}
+          {{ ((sp | float(0)) - (word.get('lb', 0) | float(0) if word is mapping else 0)) | round(1) }}
+        availability: >-
+          {% set sp = state_attr('sensor.pdc_mitsui_state', 'setpoint_c') %}
+          {% set word = state_attr('sensor.pdc_mitsui_state', 'setpoint_word') %}
+          {{ sp is number and word is mapping and word.get('lb') is number }}
+
+      - name: "PDC Mitsui Hydraulic Power"
+        unique_id: pdc_mitsui_hydraulic_power
+        device_class: power
+        unit_of_measurement: "kW"
+        state: "{{ state_attr('sensor.pdc_mitsui_state', 'hydraulic_power_kw') }}"
+
+      - name: "PDC Mitsui Thermal Power Calculated"
+        unique_id: pdc_mitsui_thermal_power_calculated
+        device_class: power
+        unit_of_measurement: "kW"
+        state: "{{ state_attr('sensor.pdc_mitsui_state', 'thermal_power_calc_kw') }}"
+
+      - name: "PDC Mitsui Stato Elettrico"
+        unique_id: pdc_mitsui_electrical_state
+        icon: mdi:flash
+        state: >-
+          {% set p = states('sensor.0x187a3efffecac49f_power_z') | float(0) %}
+          {% set i = states('sensor.0x187a3efffecac49f_current_z') | float(0) %}
+          {% set p_thr = states('input_number.pdc_mitsui_electrical_active_power_threshold') | float(300) %}
+          {% set i_thr = states('input_number.pdc_mitsui_electrical_active_current_threshold') | float(1.2) %}
+          {% if p >= p_thr or i >= i_thr %}
+            active
+          {% elif p >= 40 or i >= 0.2 %}
+            standby_or_pumps
+          {% else %}
+            off
+          {% endif %}
+        attributes:
+          power_w: "{{ states('sensor.0x187a3efffecac49f_power_z') | float(0) }}"
+          current_a: "{{ states('sensor.0x187a3efffecac49f_current_z') | float(0) }}"
+          voltage_v: "{{ states('sensor.0x187a3efffecac49f_voltage_z') | float(0) }}"
+
+      - name: "PDC Mitsui Energy Consumption"
+        unique_id: pdc_mitsui_energy_consumption
+        device_class: energy
+        state_class: total_increasing
+        unit_of_measurement: "kWh"
+        state: "{{ state_attr('sensor.pdc_mitsui_state', 'energy_consumption_kwh') }}"
+
+      - name: "PDC COP Orario"
+        unique_id: pdc_cop_orario
+        unit_of_measurement: "%"
+        state_class: measurement
+        icon: "mdi:gauge"
+        state: >-
+          {% set thermal_kw = states('sensor.pdc_mitsui_thermal_power_calculated') | float(0) %}
+          {% set electrical_kw = (states('sensor.0x187a3efffecac49f_power_z') | float(0)) / 1000 %}
+          {% if electrical_kw > 0.05 and thermal_kw > 0 %}
+            {{ ((thermal_kw / electrical_kw) * 100) | round(2) }}
+          {% else %}
+            0
+          {% endif %}
+        availability: >-
+          {{ states('sensor.pdc_mitsui_thermal_power_calculated') | is_number
+             and states('sensor.0x187a3efffecac49f_power_z') | is_number }}
+
+      - name: "PDC Mitsui COP Istantaneo"
+        unique_id: pdc_mitsui_cop_istantaneo
+        state_class: measurement
+        icon: mdi:gauge
+        state: >-
+          {% set thermal_kw = states('sensor.pdc_mitsui_thermal_power_calculated') | float(0) %}
+          {% set electrical_kw = (states('sensor.0x187a3efffecac49f_power_z') | float(0)) / 1000 %}
+          {% if electrical_kw > 0.05 and thermal_kw > 0 %}
+            {{ (thermal_kw / electrical_kw) | round(2) }}
+          {% else %}
+            0
+          {% endif %}
+
+      - name: "PDC Mitsui PMV"
+        unique_id: pdc_mitsui_pmv
+        unit_of_measurement: "%"
+        state: "{{ state_attr('sensor.pdc_mitsui_state', 'pmv_percent') }}"
+
+      - name: "PDC Mitsui Compressor Frequency"
+        unique_id: pdc_mitsui_compressor_frequency
+        unit_of_measurement: "Hz"
+        state: "{{ state_attr('sensor.pdc_mitsui_state', 'compressor_hz') }}"
+
+      - name: "PDC Mitsui Compressor Current"
+        unique_id: pdc_mitsui_compressor_current
+        device_class: current
+        unit_of_measurement: "A"
+        state: "{{ state_attr('sensor.pdc_mitsui_state', 'compressor_current_a') }}"
+
+      - name: "PDC Mitsui Target Frequency"
+        unique_id: pdc_mitsui_target_frequency
+        unit_of_measurement: "Hz"
+        state: "{{ state_attr('sensor.pdc_mitsui_state', 'target_hz') }}"
+
+      - name: "PDC Mitsui Fan RPM"
+        unique_id: pdc_mitsui_fan_rpm
+        unit_of_measurement: "rpm"
+        state: "{{ state_attr('sensor.pdc_mitsui_state', 'fan_rpm') }}"
+
+      - name: "PDC Mitsui Voltage"
+        unique_id: pdc_mitsui_voltage
+        device_class: voltage
+        unit_of_measurement: "V"
+        state: "{{ state_attr('sensor.pdc_mitsui_state', 'voltage_v') }}"
+
+      - name: "PDC Mitsui High Pressure"
+        unique_id: pdc_mitsui_high_pressure
+        unit_of_measurement: "kPa"
+        state: "{{ state_attr('sensor.pdc_mitsui_state', 'pressure_high_kpa') }}"
+
+      - name: "PDC Mitsui Low Pressure"
+        unique_id: pdc_mitsui_low_pressure
+        unit_of_measurement: "kPa"
+        state: "{{ state_attr('sensor.pdc_mitsui_state', 'pressure_low_kpa') }}"
+
+      - name: "PDC Mitsui Compressor Hours"
+        unique_id: pdc_mitsui_compressor_hours
+        unit_of_measurement: "h"
+        state: "{{ state_attr('sensor.pdc_mitsui_state', 'compressor_hours') }}"
+
+      - name: "PDC Mitsui Current Fault"
+        unique_id: pdc_mitsui_current_fault
+        state: "{{ state_attr('sensor.pdc_mitsui_state', 'fault_current') }}"
+
+      - name: "PDC Mitsui Telemetry Age"
+        unique_id: pdc_mitsui_telemetry_age
+        unit_of_measurement: "s"
+        state: "{{ state_attr('sensor.pdc_mitsui_exporter', 'age_s') }}"
+
+      - name: "PDC Mitsui Poll Duration"
+        unique_id: pdc_mitsui_poll_duration
+        unit_of_measurement: "s"
+        state: "{{ state_attr('sensor.pdc_mitsui_exporter', 'poll_duration_s') }}"
+
+      - name: "PDC Mitsui Read Errors"
+        unique_id: pdc_mitsui_read_errors
+        state: >-
+          {% set errs = state_attr('sensor.pdc_mitsui_exporter', 'errors') %}
+          {% if errs is mapping %}
+            {{ errs | length }}
+          {% else %}
+            0
+          {% endif %}
+
+  - binary_sensor:
+      - name: "CLIMA Tutte Zone Spente"
+        unique_id: clima_tutte_zone_spente
+        device_class: power
+        state: "{{ states('sensor.clima_zone_mode_on_total') | int(0) == 0 }}"
+
+      - name: "CLIMA Tutte Zone Soddisfatte"
+        unique_id: clima_tutte_zone_soddisfatte
+        icon: mdi:home-check
+        state: "{{ states('sensor.clima_zone_calling_total') | int(0) == 0 }}"
+
+      - name: "PDC Mitsui Reset Required"
+        unique_id: pdc_mitsui_reset_required
+        device_class: problem
+        state: >-
+          {{ is_state('binary_sensor.pdc_mitsui_alarm', 'on')
+             or states('sensor.pdc_mitsui_current_fault') | int(0) > 0 }}
+
+      - name: "PDC Mitsui AC LAN Fallback Fault 69"
+        unique_id: pdc_mitsui_ac_lan_fallback_fault_69
+        device_class: problem
+        state: >-
+          {{ is_state('input_boolean.pdc_mitsui_ac_lan_fallback_enabled', 'on')
+             and is_state('binary_sensor.pdc_mitsui_telemetry_stale', 'on')
+             and states('sensor.152832116443590_error_code') | int(0) == 69 }}
+
+      - name: "PDC Mitsui VIMAR Invalid Both On"
+        unique_id: pdc_mitsui_vimar_invalid_both_on
+        device_class: problem
+        state: "{{ is_state('switch.pdc_caldo', 'on') and is_state('switch.pdc_freddo', 'on') }}"
+
+      - name: "PDC Mitsui Electrically Active"
+        unique_id: pdc_mitsui_electrically_active
+        device_class: running
+        state: >-
+          {% set p = states('sensor.0x187a3efffecac49f_power_z') | float(0) %}
+          {% set i = states('sensor.0x187a3efffecac49f_current_z') | float(0) %}
+          {% set p_thr = states('input_number.pdc_mitsui_electrical_active_power_threshold') | float(300) %}
+          {% set i_thr = states('input_number.pdc_mitsui_electrical_active_current_threshold') | float(1.2) %}
+          {{ p >= p_thr or i >= i_thr }}
+        delay_off:
+          seconds: 60
+
+      - name: "PDC Mitsui Telemetry Online"
+        unique_id: pdc_mitsui_telemetry_online
+        device_class: connectivity
+        state: >-
+          {% set age = states('sensor.pdc_mitsui_telemetry_age') | float(999) %}
+          {{ is_state('sensor.pdc_mitsui_exporter', 'online') and age < 30 }}
+
+      - name: "PDC Mitsui Telemetry Stale"
+        unique_id: pdc_mitsui_telemetry_stale
+        device_class: problem
+        state: >-
+          {% set age = states('sensor.pdc_mitsui_telemetry_age') | float(999) %}
+          {{ not is_state('sensor.pdc_mitsui_exporter', 'online') or age >= 30 }}
+
+      - name: "PDC Mitsui Modbus Read Errors"
+        unique_id: pdc_mitsui_modbus_read_errors
+        device_class: problem
+        state: "{{ states('sensor.pdc_mitsui_read_errors') | int(0) > 0 }}"
+
+      - name: "PDC Mitsui Low Flow While Pumping"
+        unique_id: pdc_mitsui_low_flow_while_pumping
+        device_class: problem
+        state: >-
+          {% set flow = states('sensor.pdc_mitsui_flow') | float(999) %}
+          {% set min_flow = states('input_number.pdc_mitsui_min_flow_warning') | float(0.30) %}
+          {{ is_state('binary_sensor.pdc_mitsui_pump_i', 'on') and flow < min_flow }}
+
+      - name: "PDC Mitsui Compressor Running"
+        unique_id: pdc_mitsui_compressor_running
+        state: "{{ states('sensor.pdc_mitsui_compressor_frequency') | float(0) > 0 }}"
+
+      - name: "PDC Mitsui Circulating"
+        unique_id: pdc_mitsui_circulating
+        state: >-
+          {% set flow = states('sensor.pdc_mitsui_flow') | float(0) %}
+          {% set min_flow = states('input_number.pdc_mitsui_min_flow_warning') | float(0.30) %}
+          {{ is_state('binary_sensor.pdc_mitsui_pump_i', 'on') and flow >= min_flow }}
+
+      - name: "PDC Mitsui Pump I"
+        unique_id: pdc_mitsui_pump_i
+        state: "{{ state_attr('sensor.pdc_mitsui_state', 'pump_i') }}"
+
+      - name: "PDC Mitsui Pump O"
+        unique_id: pdc_mitsui_pump_o
+        state: "{{ state_attr('sensor.pdc_mitsui_state', 'pump_o') }}"
+
+      - name: "PDC Mitsui Alarm"
+        unique_id: pdc_mitsui_alarm
+        device_class: problem
+        state: "{{ state_attr('sensor.pdc_mitsui_state', 'alarm') }}"
+
+      - name: "PDC Mitsui Defrosting"
+        unique_id: pdc_mitsui_defrosting
+        state: "{{ state_attr('sensor.pdc_mitsui_state', 'defrosting') }}"
+
+      - name: "PDC Mitsui Antifreeze"
+        unique_id: pdc_mitsui_antifreeze
+        state: "{{ state_attr('sensor.pdc_mitsui_state', 'antifreeze') }}"
+
+      - name: "PDC Mitsui Run Bit"
+        unique_id: pdc_mitsui_run_bit
+        state: "{{ state_attr('sensor.pdc_mitsui_state', 'run') }}"
+
+      - name: "PDC Mitsui Remote On Off"
+        unique_id: pdc_mitsui_remote_onoff
+        state: "{{ state_attr('sensor.pdc_mitsui_state', 'remote_onoff') }}"
+
+      - name: "PDC Mitsui Room Stat Cooling"
+        unique_id: pdc_mitsui_room_stat_cooling
+        state: "{{ state_attr('sensor.pdc_mitsui_state', 'room_stat_cooling') }}"
+
+      - name: "PDC Mitsui Room Stat Heating"
+        unique_id: pdc_mitsui_room_stat_heating
+        state: "{{ state_attr('sensor.pdc_mitsui_state', 'room_stat_heating') }}"
+
+script:
+  pdc_mitsui_apply_mandata:
+    alias: "PDC Mitsui scrivi T mandata"
+    mode: single
+    sequence:
+      - variables:
+          target: "{{ states('input_number.pdc_mitsui_mandata_target') | int }}"
+          mode: "{{ states('sensor.pdc_mitsui_mode') | trim }}"
+          request: "{{ states('sensor.pdc_mitsui_richiesta_vimar') }}"
+          effective_mode: >-
+            {% if states('sensor.pdc_mitsui_mode') in ['cooling', 'heating'] %}
+              {{ states('sensor.pdc_mitsui_mode') }}
+            {% else %}
+              {{ states('sensor.pdc_mitsui_richiesta_vimar') }}
+            {% endif %}
+      - choose:
+          - conditions:
+              - condition: state
+                entity_id: binary_sensor.pdc_mitsui_telemetry_online
+                state: "on"
+              - condition: state
+                entity_id: binary_sensor.pdc_mitsui_modbus_read_errors
+                state: "off"
+              - condition: state
+                entity_id: binary_sensor.pdc_mitsui_reset_required
+                state: "off"
+              - condition: template
+                value_template: >-
+                  {% set t = target | int %}
+                  {% set m = effective_mode | trim %}
+                  {{ (m == 'cooling' and 5 <= t <= 25)
+                     or (m == 'heating' and 25 <= t <= 60) }}
+            sequence:
+              - service: input_text.set_value
+                target:
+                  entity_id: input_text.pdc_mitsui_last_setpoint_write_raw
+                data:
+                  value: "queued {{ target }} C via ESPHome"
+              - service: number.set_value
+                target:
+                  entity_id: number.pdc_mitsui_esp32_pdc_mitsui_setpoint_water_target
+                data:
+                  value: "{{ target }}"
+              - delay:
+                  seconds: 15
+              - variables:
+                  readback: "{{ states('sensor.pdc_mitsui_setpoint') | int(-999) }}"
+              - choose:
+                  - conditions:
+                      - condition: template
+                        value_template: "{{ readback | int(-999) == target | int }}"
+                    sequence:
+                      - service: input_text.set_value
+                        target:
+                          entity_id: input_text.pdc_mitsui_last_setpoint_write_raw
+                        data:
+                          value: "ok {{ target }} C via ESPHome"
+                default:
+                  - service: input_text.set_value
+                    target:
+                      entity_id: input_text.pdc_mitsui_last_setpoint_write_raw
+                    data:
+                      value: "error target {{ target }} C readback {{ readback }} C"
+                  - service: persistent_notification.create
+                    data:
+                      title: "PDC Mitsui readback mandata non coerente"
+                      message: >-
+                        Dopo write ESPHome target={{ target }} C, readback={{ readback }} C.
+                        Verificare bus Modbus e HMI.
+        default:
+          - service: input_text.set_value
+            target:
+              entity_id: input_text.pdc_mitsui_last_setpoint_write_raw
+            data:
+              value: "blocked {{ target }} C mode {{ effective_mode | trim }}"
+          - service: persistent_notification.create
+            data:
+              title: "PDC Mitsui write mandata bloccato"
+              message: >-
+                Write non eseguito: target={{ target }} C, modo={{ mode }},
+                richiesta={{ request }}. Serve telemetria online, zero errori
+                Modbus, nessun reset richiesto e range coerente con cooling 5..25 C
+                o heating 25..60 C.
+
+  clima_setpoint_tutti:
+    alias: "CLIMA setpoint tutti"
+    mode: single
+    sequence:
+      - service: climate.set_temperature
+        continue_on_error: true
+        target:
+          entity_id:
+            - climate.clima_bagno
+            - climate.clima_camera
+            - climate.clima_cameretta
+            - climate.clima_cucina
+            - climate.clima_sala_da_pranzo
+            - climate.clima_salotto
+            - climate.termostato_bagno_servizio
+            - climate.termostato_padronale_p2
+            - climate.termostato_sala_sud
+            - climate.termostato_stanza_ovest_p2
+            - climate.termostato_stanza_sud
+        data:
+          temperature: "{{ states('input_number.clima_setpoint_tutti') | float }}"
+
+  clima_setpoint_zona_notte:
+    alias: "CLIMA setpoint zona notte"
+    mode: single
+    sequence:
+      - service: climate.set_temperature
+        continue_on_error: true
+        target:
+          entity_id:
+            - climate.clima_camera
+            - climate.clima_cameretta
+            - climate.clima_bagno
+        data:
+          temperature: "{{ states('input_number.clima_setpoint_zona_notte') | float }}"
+
+  clima_setpoint_zona_giorno:
+    alias: "CLIMA setpoint zona giorno"
+    mode: single
+    sequence:
+      - service: climate.set_temperature
+        continue_on_error: true
+        target:
+          entity_id:
+            - climate.clima_cucina
+            - climate.clima_sala_da_pranzo
+            - climate.clima_salotto
+        data:
+          temperature: "{{ states('input_number.clima_setpoint_zona_giorno') | float }}"
+
+  clima_setpoint_p2:
+    alias: "CLIMA setpoint P2"
+    mode: single
+    sequence:
+      - service: climate.set_temperature
+        continue_on_error: true
+        target:
+          entity_id:
+            - climate.termostato_bagno_servizio
+            - climate.termostato_padronale_p2
+            - climate.termostato_sala_sud
+            - climate.termostato_stanza_ovest_p2
+            - climate.termostato_stanza_sud
+        data:
+          temperature: "{{ states('input_number.clima_setpoint_p2') | float }}"
+
+  clima_tutto_off:
+    alias: "CLIMA tutto off"
+    mode: single
+    sequence:
+      - service: climate.set_hvac_mode
+        continue_on_error: true
+        target:
+          entity_id:
+            - climate.clima_bagno
+            - climate.clima_camera
+            - climate.clima_cameretta
+            - climate.clima_cucina
+            - climate.clima_sala_da_pranzo
+            - climate.clima_salotto
+            - climate.termostato_bagno_servizio
+            - climate.termostato_padronale_p2
+            - climate.termostato_sala_sud
+            - climate.termostato_stanza_ovest_p2
+            - climate.termostato_stanza_sud
+        data:
+          hvac_mode: "off"
+      - service: script.pdc_mitsui_stop_richiesta
+
+  clima_tutto_heat:
+    alias: "CLIMA tutto heat"
+    mode: single
+    sequence:
+      - service: climate.set_hvac_mode
+        continue_on_error: true
+        target:
+          entity_id:
+            - climate.clima_bagno
+            - climate.clima_camera
+            - climate.clima_cameretta
+            - climate.clima_cucina
+            - climate.clima_sala_da_pranzo
+            - climate.clima_salotto
+            - climate.termostato_bagno_servizio
+            - climate.termostato_padronale_p2
+            - climate.termostato_sala_sud
+            - climate.termostato_stanza_ovest_p2
+            - climate.termostato_stanza_sud
+        data:
+          hvac_mode: heat
+      - service: script.pdc_mitsui_set_caldo
+
+  clima_tutto_cool:
+    alias: "CLIMA tutto cool"
+    mode: single
+    sequence:
+      - service: climate.set_hvac_mode
+        continue_on_error: true
+        target:
+          entity_id:
+            - climate.clima_bagno
+            - climate.clima_camera
+            - climate.clima_cameretta
+            - climate.clima_cucina
+            - climate.clima_sala_da_pranzo
+            - climate.clima_salotto
+            - climate.termostato_bagno_servizio
+            - climate.termostato_padronale_p2
+            - climate.termostato_sala_sud
+            - climate.termostato_stanza_ovest_p2
+            - climate.termostato_stanza_sud
+        data:
+          hvac_mode: cool
+      - service: script.pdc_mitsui_set_freddo
+
+  clima_tutto_auto:
+    alias: "CLIMA tutto auto"
+    mode: single
+    sequence:
+      - service: climate.set_hvac_mode
+        continue_on_error: true
+        target:
+          entity_id:
+            - climate.clima_bagno
+            - climate.clima_camera
+            - climate.clima_cameretta
+            - climate.clima_cucina
+            - climate.clima_sala_da_pranzo
+            - climate.clima_salotto
+            - climate.termostato_bagno_servizio
+            - climate.termostato_padronale_p2
+            - climate.termostato_sala_sud
+            - climate.termostato_stanza_ovest_p2
+            - climate.termostato_stanza_sud
+        data:
+          hvac_mode: auto
+
+  pdc_mitsui_set_freddo:
+    alias: "PDC Mitsui set freddo"
+    mode: single
+    sequence:
+      - service: switch.turn_off
+        target:
+          entity_id: switch.pdc_caldo
+      - delay:
+          seconds: 1
+      - service: switch.turn_on
+        target:
+          entity_id: switch.pdc_freddo
+
+  pdc_mitsui_set_caldo:
+    alias: "PDC Mitsui set caldo"
+    mode: single
+    sequence:
+      - service: switch.turn_off
+        target:
+          entity_id: switch.pdc_freddo
+      - delay:
+          seconds: 1
+      - service: switch.turn_on
+        target:
+          entity_id: switch.pdc_caldo
+
+  pdc_mitsui_stop_richiesta:
+    alias: "PDC Mitsui stop richiesta"
+    mode: single
+    sequence:
+      - service: switch.turn_off
+        target:
+          entity_id:
+            - switch.pdc_caldo
+            - switch.pdc_freddo
+
+  pdc_mitsui_shelly_reset_30m:
+    alias: "PDC Mitsui reset Shelly 30 min"
+    mode: single
+    sequence:
+      - service: script.pdc_mitsui_stop_richiesta
+      - service: script.tg_termico_notify
+        continue_on_error: true
+        data:
+          message: >-
+            Avviso: protezione PDC attivata. Tolgo la richiesta caldo/freddo,
+            spengo il modulo idronico interno tramite Shelly e lo riaccendo tra
+            30 minuti.
+      - service: notify.alexa_media
+        continue_on_error: true
+        data:
+          target:
+            - media_player.echo_salotto
+            - media_player.echo_sala_da_pranzo
+          data:
+            type: tts
+          message: >-
+            Avviso: protezione pompa di calore attivata. Il modulo idronico
+            viene spento e riacceso automaticamente tra 30 minuti.
+      - service: switch.turn_off
+        target:
+          entity_id: switch.shellyplus1pm_fcb467286758_switch_0
+      - delay:
+          minutes: 30
+      - service: switch.turn_on
+        target:
+          entity_id: switch.shellyplus1pm_fcb467286758_switch_0
+
+automation:
+  - alias: "PDC Mitsui stop richiesta se zone soddisfatte"
+    id: pdc_mitsui_stop_richiesta_se_zone_soddisfatte
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.clima_tutte_zone_soddisfatte
+        to: "on"
+        for:
+          minutes: 10
+    condition:
+      - condition: state
+        entity_id: input_boolean.pdc_mitsui_auto_protection_enabled
+        state: "on"
+      - condition: template
+        value_template: "{{ states('sensor.pdc_mitsui_richiesta_vimar') in ['cooling', 'heating'] }}"
+    action:
+      - service: script.pdc_mitsui_stop_richiesta
+      - service: persistent_notification.create
+        data:
+          title: "PDC Mitsui richiesta fermata"
+          message: "Tutte le zone VIMAR risultano soddisfatte: consenso caldo/freddo rimosso."
+
+  - alias: "PDC Mitsui prevenzione bassa portata"
+    id: pdc_mitsui_prevenzione_bassa_portata
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.pdc_mitsui_low_flow_while_pumping
+        to: "on"
+        for:
+          minutes: 2
+    condition:
+      - condition: state
+        entity_id: input_boolean.pdc_mitsui_auto_protection_enabled
+        state: "on"
+    action:
+      - service: script.pdc_mitsui_stop_richiesta
+      - service: persistent_notification.create
+        data:
+          title: "PDC Mitsui bassa portata"
+          message: "Portata sotto soglia con pompa attiva: consenso caldo/freddo rimosso."
+
+  - alias: "PDC Mitsui reset Shelly blocco Modbus first"
+    id: pdc_mitsui_reset_shelly_blocco_modbus_first
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.pdc_mitsui_reset_required
+        to: "on"
+        for:
+          minutes: 5
+      - platform: state
+        entity_id: binary_sensor.pdc_mitsui_ac_lan_fallback_fault_69
+        to: "on"
+        for:
+          minutes: 5
+    condition:
+      - condition: state
+        entity_id: input_boolean.pdc_mitsui_auto_reset_enabled
+        state: "on"
+    action:
+      - service: script.pdc_mitsui_shelly_reset_30m
+
+  - alias: "PDC Mitsui interlock caldo spegne freddo"
+    id: pdc_mitsui_interlock_caldo_spegne_freddo
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: switch.pdc_caldo
+        to: "on"
+    condition:
+      - condition: state
+        entity_id: switch.pdc_freddo
+        state: "on"
+    action:
+      - service: switch.turn_off
+        target:
+          entity_id: switch.pdc_freddo
+
+  - alias: "PDC Mitsui interlock freddo spegne caldo"
+    id: pdc_mitsui_interlock_freddo_spegne_caldo
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: switch.pdc_freddo
+        to: "on"
+    condition:
+      - condition: state
+        entity_id: switch.pdc_caldo
+        state: "on"
+    action:
+      - service: switch.turn_off
+        target:
+          entity_id: switch.pdc_caldo
