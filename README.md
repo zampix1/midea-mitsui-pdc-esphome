@@ -4,6 +4,15 @@ ESPHome Modbus RTU bridge for Midea/Mitsui heat pumps and compatible rebranded u
 
 This repository is an ESPHome-first port of a Raspberry Pi Modbus exporter. It targets the Waveshare ESP32-S3-RS485-CAN board and exposes the heat pump registers directly to Home Assistant through ESPHome.
 
+## What Works
+
+- Tested on a Mitsui-branded Midea-platform heat pump.
+- Tested hardware target: Waveshare ESP32-S3-RS485-CAN.
+- Modbus RTU over RS485, slave address `1`, `9600 8N1`.
+- ESPHome package import for Home Assistant / ESPHome users.
+- Read sensors for runtime, diagnostics and configuration registers.
+- Controlled write support for the validated water setpoint register.
+
 ## Description / Descrizione
 
 **Italiano**

@@ -1,7 +1,9 @@
 * text=auto eol=lf
 
 *.md text eol=lf
-*.yaml text eol=lf
-*.yml text eol=lf
+*.yaml text eol=lf linguist-detectable=true linguist-language=YAML
+*.yml text eol=lf linguist-detectable=true linguist-language=YAML
 *.py text eol=lf
 
+*.py linguist-vendored
+tests/** linguist-vendored
