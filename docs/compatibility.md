@@ -10,6 +10,8 @@ It may also help with other Midea platform units and rebrands sold under local b
 - Holding registers.
 - Slave address `1`.
 - Serial mode `9600 8N1`.
+- Wired HMI product model `KJRH-120F/BMK0-E`; PCB marking `KJR.120K.D.1.1.1-1`.
+- RS485 adapter connected to `H1/H2` on the back of that HMI; see the [photo and wiring guide](hmi-rs485-wiring.md).
 - Water setpoint write observed on register `11`.
 
 ## Clone Validation Checklist
