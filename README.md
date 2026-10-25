@@ -4,6 +4,16 @@ ESPHome Modbus RTU bridge for Midea/Mitsui heat pumps and compatible rebranded u
 
 This repository is an ESPHome-first port of a Raspberry Pi Modbus exporter. It targets the Waveshare ESP32-S3-RS485-CAN board and exposes the heat pump registers directly to Home Assistant through ESPHome.
 
+## Where To Connect / Dove Collegarsi
+
+**English:** the validated RS485 connection is **H1/H2 on the back of the wired HMI**, model **KJRH-120F/BMK0-E**. The HMI housing must be opened to reach these terminals, with the heat pump power isolated. This is not a connection to the hydraulic board's `A/B` terminals.
+
+**Italiano:** il collegamento RS485 validato e' sui morsetti **H1/H2 sul retro dell'HMI cablato**, modello **KJRH-120F/BMK0-E**. Per accedervi occorre aprire l'HMI, a macchina disalimentata. Non si tratta dei morsetti `A/B` della scheda idronica.
+
+[Photo guide: full HMI PCB, exact model and wiring](docs/hmi-rs485-wiring.md) | [Guida fotografica nel wiki](https://github.com/zampix1/midea-mitsui-pdc-esphome/wiki/HMI-KJR-120K-RS485-Wiring)
+
+![H1/H2 Modbus terminals on the back of the wired HMI](docs/images/wired-controller-hmi-h1-h2-modbus.jpg)
+
 ## What Works
 
 - Tested on a Mitsui-branded Midea-platform heat pump.

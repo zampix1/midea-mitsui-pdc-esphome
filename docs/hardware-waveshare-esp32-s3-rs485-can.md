@@ -2,6 +2,14 @@
 
 This is the board used in the validated ESPHome port. It is convenient because the ESP32-S3, RS485 transceiver and CAN transceiver are already on the same board; this project uses the RS485 side.
 
+## Heat Pump Connection
+
+The validated data connection is to **H1/H2 on the back of the wired HMI, model KJRH-120F/BMK0-E**, not to the hydronic board's `A/B` terminals. Opening the HMI housing is necessary to access the pair; isolate power before opening or wiring it.
+
+See the [bilingual photo and wiring guide](hmi-rs485-wiring.md) for the complete HMI PCB, model label, terminal close-up and first read-only checks.
+
+## ESP32 Pins
+
 Default pins used by the package:
 
 | Signal | GPIO |
